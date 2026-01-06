@@ -5,9 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "zapio"
 readme = "README.md"
-description = "platformio arduino embedded compiler"
+description = "Modern replacement for PlatformIO with URL-based platform/toolchain management and bug-free architecture"
 requires-python = ">=3.10"
-keywords = ["template-python-cmd"]
+keywords = ["embedded", "arduino", "platformio", "compiler", "toolchain", "firmware", "microcontroller"]
 license = { text = "BSD 3-Clause License" }
 classifiers = ["Programming Language :: Python :: 3"]
 dependencies = [

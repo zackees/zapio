@@ -8,7 +8,7 @@ import re
 from setuptools import setup
 
 URL = "https://github.com/zackees/zapio"
-KEYWORDS = "PlatformIO compatible turbo compiler alternative"
+KEYWORDS = "embedded arduino platformio compiler toolchain firmware microcontroller URL-based"
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
