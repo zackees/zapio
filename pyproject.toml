@@ -16,6 +16,12 @@ dependencies = [
 # Change this with the version number bump.
 version = "0.0.1"
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov",
+]
+
 [tool.setuptools]
 package-dir = {"" = "src"}
 
