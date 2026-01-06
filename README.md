@@ -17,7 +17,9 @@ Zapio is a next-generation embedded development tool designed to replace Platfor
 ## Key Features
 
 - **URL-based Package Management**: Direct URLs to toolchains and platforms - no hidden registries
+- **Library Management**: Download and compile Arduino libraries from GitHub URLs
 - **Fast Incremental Builds**: 0.76s rebuilds, 3s full builds (cached)
+- **LTO Support**: Link-Time Optimization for optimal code size
 - **Transparent Architecture**: Know exactly what's happening at every step
 - **Real Downloads, No Mocks**: All packages are real, validated, and checksummed
 - **Cross-platform Support**: Windows, macOS, and Linux
@@ -150,9 +152,37 @@ monitor_speed = 9600      # Future: for serial monitor
 build_flags =
     -DDEBUG
     -DLED_PIN=13
-lib_deps =                # Future: library dependencies
-    SPI
-    Wire
+lib_deps =
+    https://github.com/FastLED/FastLED
+    https://github.com/adafruit/Adafruit_NeoPixel
+```
+
+### Library Dependencies
+
+Zapio supports downloading and compiling Arduino libraries directly from GitHub URLs:
+
+```ini
+[env:uno]
+platform = atmelavr
+board = uno
+framework = arduino
+lib_deps =
+    https://github.com/FastLED/FastLED
+```
+
+**Features**:
+- Automatic GitHub URL optimization (converts repo URLs to zip downloads)
+- Automatic branch detection (main vs master)
+- Proper Arduino library structure handling
+- LTO (Link-Time Optimization) for optimal code size
+- Support for complex libraries with assembly optimizations
+
+**Example build with FastLED**:
+```
+✓ Build successful!
+Firmware: tests/uno/.zap/build/uno/firmware.hex
+Size: 12KB (4318 bytes program, 3689 bytes RAM)
+Build time: 78.59 seconds
 ```
 
 ### Supported Boards
@@ -211,12 +241,12 @@ See [docs/build-system.md](docs/build-system.md) for comprehensive architecture 
 ```
 platformio.ini → Config Parser → Package Manager → Build Orchestrator
                                         ↓
-                      ┌─────────────────┼─────────────────┐
-                      ↓                 ↓                 ↓
-                 Toolchain        Arduino Core      Source Scanner
-                (AVR-GCC)       (cores/variants)     (.ino/.cpp/.c)
-                      ↓                 ↓                 ↓
-                      └─────────────────┼─────────────────┘
+                      ┌─────────────────┼─────────────────┬──────────────────┐
+                      ↓                 ↓                 ↓                  ↓
+                 Toolchain        Arduino Core      Source Scanner   Library Manager
+                (AVR-GCC)       (cores/variants)     (.ino/.cpp/.c)   (GitHub libs)
+                      ↓                 ↓                 ↓                  ↓
+                      └─────────────────┼─────────────────┴──────────────────┘
                                         ↓
                               Compiler (avr-g++)
                                         ↓
@@ -226,6 +256,30 @@ platformio.ini → Config Parser → Package Manager → Build Orchestrator
                                         ↓
                                 firmware.hex
 ```
+
+### Library System Architecture
+
+The library management system handles downloading, compiling, and linking Arduino libraries:
+
+1. **Library Downloading**
+   - Optimizes GitHub URLs to direct zip downloads
+   - Detects and uses appropriate branch (main/master)
+   - Extracts libraries with proper directory structure
+
+2. **Library Compilation**
+   - Compiles C/C++ library sources with LTO flags (`-flto -fno-fat-lto-objects`)
+   - Resolves include paths for Arduino library structure
+   - Generates LTO bytecode objects for optimal linking
+
+3. **Library Linking**
+   - Passes library object files directly to linker (no archiving)
+   - LTO-aware linking with `--allow-multiple-definition` for symbol resolution
+   - Proper handling of weak symbols and ISR handlers
+
+**Technical Solutions**:
+- **LTO Bytecode**: Generate only LTO bytecode to avoid AVR register limitations during compilation
+- **Direct Object Linking**: Pass object files directly to linker instead of archiving for better LTO integration
+- **Multiple Definition Handling**: Support libraries that define symbols in multiple files (e.g., FastLED ISR handlers)
 
 ## Project Structure
 

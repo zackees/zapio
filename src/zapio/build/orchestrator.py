@@ -20,6 +20,7 @@ from ..config.board_config import BoardConfigError
 from ..packages import Cache, Toolchain, ArduinoCore
 from ..packages.toolchain import ToolchainError
 from ..packages.arduino_core import ArduinoCoreError
+from ..packages.library_manager import LibraryManager, LibraryError
 from .source_scanner import SourceScanner
 from .compiler import Compiler
 from .compiler import CompilerError as CompilerImportError
@@ -53,11 +54,13 @@ class BuildOrchestrator:
     2. Load board configuration
     3. Ensure toolchain is downloaded and validated
     4. Ensure Arduino core is downloaded and validated
-    5. Scan source files (sketch + core + variant)
-    6. Compile all sources to object files
-    7. Link objects into firmware.elf
-    8. Convert to firmware.hex (Intel HEX format)
-    9. Display size information
+    5. Setup build directories
+    6. Download and compile library dependencies
+    7. Scan source files (sketch + core + variant)
+    8. Compile all sources to object files
+    9. Link objects (including libraries) into firmware.elf
+    10. Convert to firmware.hex (Intel HEX format)
+    11. Display size information
 
     Example usage:
         orchestrator = BuildOrchestrator()
@@ -171,7 +174,7 @@ class BuildOrchestrator:
 
             # Phase 5: Setup build directories
             if verbose_mode:
-                print("[5/9] Preparing build directories...")
+                print("[5/11] Preparing build directories...")
 
             if clean:
                 self.cache.clean_build(env_name)
@@ -181,9 +184,58 @@ class BuildOrchestrator:
             core_build_dir = self.cache.get_core_build_dir(env_name)
             src_build_dir = self.cache.get_src_build_dir(env_name)
 
-            # Phase 6: Scan source files
+            # Phase 6: Download and compile library dependencies
             if verbose_mode:
-                print("[6/9] Scanning source files...")
+                print("[6/11] Processing library dependencies...")
+
+            lib_deps = config.get_lib_deps(env_name)
+            libraries = []
+            lib_include_paths = []
+            lib_objects = []
+
+            if lib_deps:
+                if verbose_mode:
+                    print(f"      Found {len(lib_deps)} library dependencies")
+
+                library_manager = LibraryManager(build_dir, mode="release")
+
+                # Get compiler info for library compilation
+                tools = toolchain.get_all_tools()
+                lib_defines_dict = board_config.get_defines()
+                lib_includes = board_config.get_include_paths(core_path)
+
+                # Convert defines dict to list format for library_manager
+                lib_defines = []
+                for key, value in lib_defines_dict.items():
+                    if value:
+                        lib_defines.append(f"{key}={value}")
+                    else:
+                        lib_defines.append(key)
+
+                libraries = library_manager.ensure_libraries(
+                    lib_deps=lib_deps,
+                    compiler_path=tools['avr-gcc'],
+                    mcu=board_config.mcu,
+                    f_cpu=board_config.f_cpu,
+                    defines=lib_defines,
+                    include_paths=lib_includes,
+                    extra_flags=[],
+                    show_progress=verbose_mode
+                )
+
+                lib_include_paths = library_manager.get_library_include_paths()
+                lib_objects = library_manager.get_library_objects()
+
+                if verbose_mode:
+                    print(f"      Compiled {len(libraries)} libraries")
+                    print(f"      Library objects: {len(lib_objects)}")
+            else:
+                if verbose_mode:
+                    print("      No library dependencies")
+
+            # Phase 7: Scan source files
+            if verbose_mode:
+                print("[7/11] Scanning source files...")
 
             sources = self._scan_sources(
                 project_dir,
@@ -204,11 +256,13 @@ class BuildOrchestrator:
                 print(f"      Variant: {len(sources.variant_sources)} files")
                 print(f"      Total: {total_sources} files")
 
-            # Phase 7: Compile sources
+            # Phase 8: Compile sources
             if verbose_mode:
-                print("[7/9] Compiling sources...")
+                print("[8/11] Compiling sources...")
 
-            compiler = self._create_compiler(toolchain, board_config, core_path)
+            compiler = self._create_compiler(
+                toolchain, board_config, core_path, lib_include_paths
+            )
 
             # Compile sketch sources
             sketch_objects = self._compile_sources(
@@ -243,19 +297,24 @@ class BuildOrchestrator:
             if verbose_mode:
                 print(f"      Compiled {len(sketch_objects) + len(all_core_objects)} objects")
 
-            # Phase 8: Link firmware
+            # Phase 9: Link firmware
             if verbose_mode:
-                print("[8/9] Linking firmware...")
+                print("[9/11] Linking firmware...")
 
             elf_path = build_dir / 'firmware.elf'
             hex_path = build_dir / 'firmware.hex'
 
             linker = self._create_linker(toolchain, board_config)
+            # For LTO with -fno-fat-lto-objects, we pass library objects separately
+            # so they don't get archived (LTO bytecode doesn't work well in archives)
             link_result = linker.link(
                 sketch_objects,
                 all_core_objects,
                 elf_path,
-                hex_path
+                hex_path,
+                [],  # No library archives
+                None,  # No extra flags
+                lib_objects  # Library objects passed separately for LTO
             )
 
             if not link_result.success:
@@ -266,11 +325,11 @@ class BuildOrchestrator:
             if verbose_mode:
                 print(f"      Firmware: {hex_path}")
 
-            # Phase 9: Display results
+            # Phase 10-11: Display results
             build_time = time.time() - start_time
 
             if verbose_mode:
-                print("[9/9] Build complete!")
+                print("[10-11/11] Build complete!")
                 print()
                 self._print_size_info(link_result.size_info)
                 print()
@@ -291,7 +350,8 @@ class BuildOrchestrator:
             ArduinoCoreError,
             CompilerImportError,
             LinkerImportError,
-            BoardConfigError
+            BoardConfigError,
+            LibraryError
         ) as e:
             build_time = time.time() - start_time
             return BuildResult(
@@ -457,7 +517,8 @@ class BuildOrchestrator:
         self,
         toolchain: Toolchain,
         board_config: BoardConfig,
-        core_path: Path
+        core_path: Path,
+        lib_include_paths: list[Path] | None = None
     ) -> Compiler:
         """
         Create compiler instance with appropriate settings.
@@ -466,12 +527,18 @@ class BuildOrchestrator:
             toolchain: Toolchain instance
             board_config: Board configuration
             core_path: Arduino core path
+            lib_include_paths: Optional library include paths
 
         Returns:
             Configured Compiler instance
         """
         tools = toolchain.get_all_tools()
         include_paths = board_config.get_include_paths(core_path)
+
+        # Add library include paths
+        if lib_include_paths:
+            include_paths = list(include_paths) + list(lib_include_paths)
+
         defines = board_config.get_defines()
 
         return Compiler(

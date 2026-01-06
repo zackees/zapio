@@ -316,18 +316,25 @@ class BoardConfig:
 
         Example:
             {
+                'PLATFORMIO': '60118',
                 'F_CPU': '16000000L',
                 'ARDUINO': '10819',
                 'ARDUINO_AVR_UNO': '',
-                'ARDUINO_ARCH_AVR': ''
+                'ARDUINO_ARCH_AVR': '',
+                '__AVR_ATmega328P__': ''
             }
         """
         defines = {
+            "PLATFORMIO": "60118",  # PlatformIO version identifier
             "F_CPU": self.f_cpu,
-            "ARDUINO": "10819",  # Arduino version
+            "ARDUINO": "10819",  # Arduino version (1.8.19)
             f"ARDUINO_{self.board}": "",
             "ARDUINO_ARCH_AVR": "",
         }
+
+        # Add MCU-specific define (e.g., __AVR_ATmega328P__)
+        mcu_define = f"__AVR_{self.mcu.upper()}__"
+        defines[mcu_define] = ""
 
         # Add any extra defines from board configuration
         for key, value in self.extra_flags.items():

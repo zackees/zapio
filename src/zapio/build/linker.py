@@ -151,23 +151,30 @@ class Linker:
         core_objects: List[Path],
         output_elf: Path,
         output_hex: Path,
-        extra_flags: Optional[List[str]] = None
+        lib_archives: Optional[List[Path]] = None,
+        extra_flags: Optional[List[str]] = None,
+        additional_objects: Optional[List[Path]] = None
     ) -> LinkResult:
         """
         Link object files into firmware.
 
         Process:
-        1. Create core.a archive from core objects
-        2. Link sketch objects + core.a to create .elf
-        3. Convert .elf to .hex using avr-objcopy
-        4. Get size information using avr-size
+        1. Link sketch objects + core objects + additional objects + library archives to create .elf
+        2. Convert .elf to .hex using avr-objcopy
+        3. Get size information using avr-size
+
+        Note: Core objects are passed directly instead of being archived because
+        LTO with -fno-fat-lto-objects produces bytecode-only objects that don't
+        work well in archives (the archive won't have a proper symbol index).
 
         Args:
             sketch_objects: User sketch object files
             core_objects: Arduino core object files
             output_elf: Output .elf file path
             output_hex: Output .hex file path
+            lib_archives: Optional list of library archive (.a) files
             extra_flags: Additional linker flags
+            additional_objects: Optional additional object files (e.g., library objects for LTO)
 
         Returns:
             LinkResult with linking status and size info
@@ -176,24 +183,14 @@ class Linker:
             # Create build directory if needed
             output_elf.parent.mkdir(parents=True, exist_ok=True)
 
-            # Step 1: Create core.a archive
-            core_archive = output_elf.parent / 'core.a'
-            if not self._create_core_archive(core_objects, core_archive):
-                return LinkResult(
-                    success=False,
-                    elf_path=None,
-                    hex_path=None,
-                    size_info=None,
-                    stdout='',
-                    stderr='Failed to create core.a archive'
-                )
-
-            # Step 2: Link to .elf
+            # Link to .elf - pass core objects directly instead of archiving
             link_result = self._link_elf(
                 sketch_objects,
-                core_archive,
+                core_objects,
                 output_elf,
-                extra_flags or []
+                lib_archives or [],
+                extra_flags or [],
+                additional_objects
             )
 
             if not link_result or link_result.returncode != 0:
@@ -315,18 +312,22 @@ class Linker:
     def _link_elf(
         self,
         sketch_objects: List[Path],
-        core_archive: Path,
+        core_objects: List[Path],
         output_elf: Path,
-        extra_flags: List[str]
+        lib_archives: List[Path],
+        extra_flags: List[str],
+        additional_objects: Optional[List[Path]] = None
     ):
         """
-        Link objects and archive to create .elf file.
+        Link objects and archives to create .elf file.
 
         Args:
             sketch_objects: Sketch object files
-            core_archive: Core archive (core.a)
+            core_objects: Core object files (passed directly for LTO)
             output_elf: Output .elf file
+            lib_archives: Library archives (.a files)
             extra_flags: Additional linker flags
+            additional_objects: Additional object files (e.g., library objects for LTO)
 
         Returns:
             subprocess.CompletedProcess result
@@ -339,6 +340,7 @@ class Linker:
             '-flto',           # Link-time optimization
             '-fuse-linker-plugin',  # Use LTO plugin
             '-Wl,--gc-sections',    # Garbage collect unused sections
+            '-Wl,--allow-multiple-definition',  # Allow multiple definitions (needed for some libraries like FastLED)
             f'-mmcu={self.mcu}',    # Target MCU
             '-o', str(output_elf)
         ]
@@ -346,15 +348,29 @@ class Linker:
         # Add sketch objects
         cmd.extend(str(obj) for obj in sketch_objects)
 
-        # Add core archive
-        if core_archive.exists():
-            cmd.append(str(core_archive))
+        # Add core objects (passed directly for LTO compatibility)
+        cmd.extend(str(obj) for obj in core_objects)
 
-        # Add library path
-        cmd.append(f'-L{output_elf.parent}')
+        # Add additional objects (e.g., library objects for LTO)
+        if additional_objects:
+            cmd.extend(str(obj) for obj in additional_objects)
+
+        # Start group for circular dependencies
+        cmd.append('-Wl,--start-group')
+
+        # Add library archives
+        for lib_archive in lib_archives:
+            if lib_archive.exists():
+                cmd.append(str(lib_archive))
 
         # Add math library
         cmd.append('-lm')
+
+        # End group
+        cmd.append('-Wl,--end-group')
+
+        # Add library path
+        cmd.append(f'-L{output_elf.parent}')
 
         # Add extra flags
         cmd.extend(extra_flags)

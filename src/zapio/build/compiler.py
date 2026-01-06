@@ -206,12 +206,17 @@ class Compiler:
             '-std=gnu11',      # C11 with GNU extensions
             '-ffunction-sections',  # Function sections for linker GC
             '-fdata-sections',      # Data sections for linker GC
+            '-flto',           # Link-time optimization
+            '-fno-fat-lto-objects',  # LTO bytecode only
             f'-mmcu={self.mcu}',    # Target MCU
         ]
 
         # Add defines
         for key, value in self.defines.items():
-            cmd.append(f'-D{key}={value}')
+            if value:
+                cmd.append(f'-D{key}={value}')
+            else:
+                cmd.append(f'-D{key}')
 
         # Add F_CPU explicitly
         if 'F_CPU' not in self.defines:
@@ -248,12 +253,17 @@ class Compiler:
             '-ffunction-sections',      # Function sections
             '-fdata-sections',          # Data sections
             '-fno-threadsafe-statics',  # No thread safety needed
+            '-flto',           # Link-time optimization
+            '-fno-fat-lto-objects',  # LTO bytecode only
             f'-mmcu={self.mcu}',        # Target MCU
         ]
 
         # Add defines
         for key, value in self.defines.items():
-            cmd.append(f'-D{key}={value}')
+            if value:
+                cmd.append(f'-D{key}={value}')
+            else:
+                cmd.append(f'-D{key}')
 
         # Add F_CPU explicitly
         if 'F_CPU' not in self.defines:
