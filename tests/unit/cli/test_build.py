@@ -88,7 +88,7 @@ class TestCLIBuild:
         """Test successful build."""
         mock_orchestrator.build.return_value = success_result
 
-        result = runner.invoke(main, ["build", "-d", str(project_dir)])
+        result = runner.invoke(main, ["build", str(project_dir)])
 
         assert result.exit_code == 0
         assert "Build successful" in result.output
@@ -110,7 +110,7 @@ class TestCLIBuild:
         mock_orchestrator.build.return_value = success_result
 
         result = runner.invoke(
-            main, ["build", "--environment", "uno", "-d", str(project_dir)]
+            main, ["build", "--environment", "uno", str(project_dir)]
         )
 
         assert result.exit_code == 0
@@ -124,7 +124,7 @@ class TestCLIBuild:
         """Test build with environment short option."""
         mock_orchestrator.build.return_value = success_result
 
-        result = runner.invoke(main, ["build", "-e", "mega", "-d", str(project_dir)])
+        result = runner.invoke(main, ["build", "-e", "mega", str(project_dir)])
 
         assert result.exit_code == 0
         mock_orchestrator.build.assert_called_once()
@@ -137,7 +137,7 @@ class TestCLIBuild:
         """Test build with clean flag."""
         mock_orchestrator.build.return_value = success_result
 
-        result = runner.invoke(main, ["build", "--clean", "-d", str(project_dir)])
+        result = runner.invoke(main, ["build", "--clean", str(project_dir)])
 
         assert result.exit_code == 0
         mock_orchestrator.build.assert_called_once()
@@ -150,7 +150,7 @@ class TestCLIBuild:
         """Test build with clean short option."""
         mock_orchestrator.build.return_value = success_result
 
-        result = runner.invoke(main, ["build", "-c", "-d", str(project_dir)])
+        result = runner.invoke(main, ["build", "-c", str(project_dir)])
 
         assert result.exit_code == 0
         call_kwargs = mock_orchestrator.build.call_args.kwargs
@@ -162,7 +162,7 @@ class TestCLIBuild:
         """Test build with verbose flag."""
         mock_orchestrator.build.return_value = success_result
 
-        result = runner.invoke(main, ["build", "--verbose", "-d", str(project_dir)])
+        result = runner.invoke(main, ["build", "--verbose", str(project_dir)])
 
         assert result.exit_code == 0
         assert "Building project:" in result.output
@@ -176,7 +176,7 @@ class TestCLIBuild:
         """Test build with verbose short option."""
         mock_orchestrator.build.return_value = success_result
 
-        result = runner.invoke(main, ["build", "-v", "-d", str(project_dir)])
+        result = runner.invoke(main, ["build", "-v", str(project_dir)])
 
         assert result.exit_code == 0
         call_kwargs = mock_orchestrator.build.call_args.kwargs
@@ -185,10 +185,10 @@ class TestCLIBuild:
     def test_build_with_project_dir(
         self, runner, mock_orchestrator, success_result, tmp_path
     ):
-        """Test build with custom project directory."""
+        """Test build with custom project directory as positional argument."""
         mock_orchestrator.build.return_value = success_result
 
-        result = runner.invoke(main, ["build", "--project-dir", str(tmp_path)])
+        result = runner.invoke(main, ["build", str(tmp_path)])
 
         assert result.exit_code == 0
         mock_orchestrator.build.assert_called_once()
@@ -198,10 +198,10 @@ class TestCLIBuild:
     def test_build_with_project_dir_short_option(
         self, runner, mock_orchestrator, success_result, tmp_path
     ):
-        """Test build with project directory short option."""
+        """Test build with project directory as positional argument (alternative test)."""
         mock_orchestrator.build.return_value = success_result
 
-        result = runner.invoke(main, ["build", "-d", str(tmp_path)])
+        result = runner.invoke(main, ["build", str(tmp_path)])
 
         assert result.exit_code == 0
         call_kwargs = mock_orchestrator.build.call_args.kwargs
@@ -214,7 +214,7 @@ class TestCLIBuild:
         mock_orchestrator.build.return_value = success_result
 
         result = runner.invoke(
-            main, ["build", "-e", "uno", "-c", "-v", "-d", str(project_dir)]
+            main, ["build", "-e", "uno", "-c", "-v", str(project_dir)]
         )
 
         assert result.exit_code == 0
@@ -230,7 +230,7 @@ class TestCLIBuild:
         """Test failed build."""
         mock_orchestrator.build.return_value = failure_result
 
-        result = runner.invoke(main, ["build", "-d", str(project_dir)])
+        result = runner.invoke(main, ["build", str(project_dir)])
 
         assert result.exit_code == 1
         assert "Build failed" in result.output
@@ -242,7 +242,7 @@ class TestCLIBuild:
             "platformio.ini not found"
         )
 
-        result = runner.invoke(main, ["build", "-d", str(project_dir)])
+        result = runner.invoke(main, ["build", str(project_dir)])
 
         assert result.exit_code == 1
         assert "File not found" in result.output
@@ -255,7 +255,7 @@ class TestCLIBuild:
             "Cannot write to build directory"
         )
 
-        result = runner.invoke(main, ["build", "-d", str(project_dir)])
+        result = runner.invoke(main, ["build", str(project_dir)])
 
         assert result.exit_code == 1
         assert "Permission denied" in result.output
@@ -264,7 +264,7 @@ class TestCLIBuild:
         """Test build interrupted by user."""
         mock_orchestrator.build.side_effect = KeyboardInterrupt()
 
-        result = runner.invoke(main, ["build", "-d", str(project_dir)])
+        result = runner.invoke(main, ["build", str(project_dir)])
 
         assert result.exit_code == 130  # Standard SIGINT exit code
         assert "interrupted" in result.output
@@ -273,7 +273,7 @@ class TestCLIBuild:
         """Test build with unexpected error."""
         mock_orchestrator.build.side_effect = RuntimeError("Unexpected error occurred")
 
-        result = runner.invoke(main, ["build", "-d", str(project_dir)])
+        result = runner.invoke(main, ["build", str(project_dir)])
 
         assert result.exit_code == 1
         assert "Unexpected error" in result.output
@@ -285,7 +285,7 @@ class TestCLIBuild:
         """Test build with unexpected error in verbose mode."""
         mock_orchestrator.build.side_effect = RuntimeError("Unexpected error occurred")
 
-        result = runner.invoke(main, ["build", "-v", "-d", str(project_dir)])
+        result = runner.invoke(main, ["build", "-v", str(project_dir)])
 
         assert result.exit_code == 1
         assert "Unexpected error" in result.output
@@ -305,7 +305,7 @@ class TestCLIBuild:
         )
         mock_orchestrator.build.return_value = result_no_size
 
-        result = runner.invoke(main, ["build", "-d", str(project_dir)])
+        result = runner.invoke(main, ["build", str(project_dir)])
 
         assert result.exit_code == 0
         assert "Build successful" in result.output
@@ -315,7 +315,7 @@ class TestCLIBuild:
 
     def test_build_with_nonexistent_project_dir(self, runner):
         """Test build with nonexistent project directory."""
-        result = runner.invoke(main, ["build", "-d", "/nonexistent/path"])
+        result = runner.invoke(main, ["build", "/nonexistent/path"])
 
         assert result.exit_code == 2  # Click validation error
         assert (
@@ -340,7 +340,7 @@ class TestCLIBuild:
         assert "--environment" in result.output
         assert "--clean" in result.output
         assert "--verbose" in result.output
-        assert "--project-dir" in result.output
+        assert "[PROJECT_DIR]" in result.output  # Changed to positional argument
 
     def test_main_version(self, runner):
         """Test version flag."""

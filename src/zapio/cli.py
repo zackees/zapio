@@ -25,6 +25,12 @@ def main() -> None:
 
 
 @main.command()
+@click.argument(
+    "project_dir",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path),
+    default=Path.cwd(),
+    required=False,
+)
 @click.option(
     "-e",
     "--environment",
@@ -43,27 +49,20 @@ def main() -> None:
     is_flag=True,
     help="Show verbose build output",
 )
-@click.option(
-    "-d",
-    "--project-dir",
-    type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path),
-    default=Path.cwd(),
-    help="Project directory (default: current directory)",
-)
 def build(
+    project_dir: Path,
     environment: Optional[str],
     clean: bool,
     verbose: bool,
-    project_dir: Path,
 ) -> None:
     """Build firmware for embedded target.
 
     Examples:
         zap build                      # Build default environment
+        zap build tests/uno           # Build specific project
         zap build -e uno              # Build 'uno' environment
         zap build --clean             # Clean build
         zap build --verbose           # Verbose output
-        zap build -d /path/to/project # Build specific project
     """
     # Print header
     click.echo("Zapio Build System v0.1.0")

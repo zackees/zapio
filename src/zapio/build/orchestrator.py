@@ -439,7 +439,11 @@ class BuildOrchestrator:
         scanner = SourceScanner(project_dir, build_dir)
 
         # Determine source directories
+        # Check if 'src' directory exists, otherwise use project root
         src_dir = project_dir / 'src'
+        if not src_dir.exists():
+            src_dir = project_dir
+
         core_dir = board_config.get_core_sources_dir(core_path)
         variant_dir = board_config.get_variant_dir(core_path)
 

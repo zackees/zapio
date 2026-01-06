@@ -113,6 +113,9 @@ class SourceScanner:
         if not src_dir.exists():
             return []
 
+        # Directories to exclude from scanning
+        excluded_dirs = {'.zap', '.pio', 'build', '.git', '__pycache__', 'node_modules'}
+
         sources = []
 
         # Find all .ino files and preprocess them
@@ -122,13 +125,13 @@ class SourceScanner:
             cpp_file = self._preprocess_ino_files(ino_files)
             sources.append(cpp_file)
 
-        # Find existing .cpp and .c files
+        # Find existing .cpp and .c files in the root directory only
         for pattern in ['*.cpp', '*.c']:
             sources.extend(sorted(src_dir.glob(pattern)))
 
-        # Recursively find sources in subdirectories
+        # Recursively find sources in subdirectories (excluding certain directories)
         for subdir in src_dir.iterdir():
-            if subdir.is_dir():
+            if subdir.is_dir() and subdir.name not in excluded_dirs:
                 for pattern in ['**/*.cpp', '**/*.c']:
                     sources.extend(sorted(subdir.glob(pattern)))
 
@@ -185,11 +188,20 @@ class SourceScanner:
         if not src_dir.exists():
             return []
 
+        # Directories to exclude from scanning
+        excluded_dirs = {'.zap', '.pio', 'build', '.git', '__pycache__', 'node_modules'}
+
         headers: set[Path] = set()
+
+        # Find headers in the root directory
         for pattern in ['*.h', '*.hpp']:
             headers.update(src_dir.glob(pattern))
-        for pattern in ['**/*.h', '**/*.hpp']:
-            headers.update(src_dir.glob(pattern))
+
+        # Recursively find headers in subdirectories (excluding certain directories)
+        for subdir in src_dir.iterdir():
+            if subdir.is_dir() and subdir.name not in excluded_dirs:
+                for pattern in ['**/*.h', '**/*.hpp']:
+                    headers.update(subdir.glob(pattern))
 
         return sorted(list(headers))
 
