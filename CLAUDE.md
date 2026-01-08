@@ -1,0 +1,257 @@
+# Zapio - Modern Embedded Development Tool
+
+## Project Overview
+
+Zapio is a next-generation embedded development tool designed to replace PlatformIO with a cleaner, more reliable architecture. It provides transparent URL-based package management, fast incremental builds, and comprehensive support for Arduino and ESP32 platforms.
+
+**Current Version:** v0.1.0
+**Status:** Full Arduino Uno support with working build system
+**Language:** Python 3.10+ (Type-safe, PEP 8 compliant)
+
+## Key Features
+
+- Compiles Arduino sketches using native toolchains (AVR-GCC, ESP32 toolchains)
+- Transparent URL-based package management (no hidden registries)
+- Fast incremental builds (0.76s rebuilds, 3s full builds)
+- Library dependency management from GitHub URLs
+- Cross-platform support (Windows, macOS, Linux)
+- 100% type-safe with comprehensive testing
+
+## Project Structure
+
+### Core Source Code (`src/zapio/`)
+
+#### CLI Interface
+- **`cli.py`** - Main command-line interface with three commands:
+  - `zap build` - Build firmware
+  - `zap deploy` - Deploy firmware to device
+  - `zap monitor` - Monitor serial output
+
+#### Build System (`src/zapio/build/`)
+- **`orchestrator.py`** - Coordinates the entire build pipeline
+- **`compiler.py`** - C/C++ compilation wrapper
+- **`configurable_compiler.py`** - Configurable compiler module
+- **`linker.py`** - Linking and firmware generation
+- **`configurable_linker.py`** - Configurable linker module
+- **`source_scanner.py`** - Source file discovery and .ino preprocessing
+
+#### Configuration (`src/zapio/config/`)
+- **`ini_parser.py`** - PlatformIO.ini file parsing
+- **`board_config.py`** - Board-specific configuration loading
+
+#### Package Management (`src/zapio/packages/`)
+- **`downloader.py`** - HTTP download with checksum verification
+- **`toolchain.py`** - AVR toolchain management
+- **`arduino_core.py`** - Arduino core library management
+- **`library_manager.py`** - GitHub library dependency management
+- **`cache.py`** - Package caching system
+- **`esp32_platform.py`** - ESP32 platform support
+- **`esp32_toolchain.py`** - ESP32 toolchain management
+- **`esp32_framework.py`** - ESP32 framework support
+- **`platformio_registry.py`** - PlatformIO registry integration
+
+#### Deployment (`src/zapio/deploy/`)
+- **`deployer.py`** - Firmware uploading (ESP32 support via esptool)
+- **`monitor.py`** - Serial port monitoring with pattern matching
+
+### Documentation (`docs/`)
+- **`build-system.md`** - Detailed build architecture and component breakdown
+- **`platformio-ini-spec.md`** - Configuration file specification
+- **`arduino-core-structure.md`** - Arduino core organization
+- **`toolchain-packages.md`** - Toolchain details and package information
+- **`PLATFORM_CONFIG_FORMAT.md`** - Platform configuration format specification
+
+### Tests (`tests/`)
+Integration test projects for multiple platforms:
+- **`tests/uno/`** - Arduino Uno test project
+- **`tests/esp32c6/`** - ESP32-C6 test project
+- **`tests/esp32c3/`** - ESP32-C3 test project
+- **`tests/esp32s3/`** - ESP32-S3 test project
+- **`tests/esp32dev/`** - ESP32 Dev test project
+
+## Architecture
+
+### Build Pipeline Flow
+```
+CLI Entry Point (cli.py)
+    ↓
+BuildOrchestrator (orchestrator.py)
+    ↓
+Config Parser (ini_parser.py) → Board Config (board_config.py)
+    ↓
+Package Manager (toolchain.py, arduino_core.py, library_manager.py)
+    ↓
+Source Scanner (source_scanner.py) - Discovers and preprocesses files
+    ↓
+Compiler (compiler.py) - Compiles source files to objects
+    ↓
+Linker (linker.py) - Links objects and generates firmware
+    ↓
+Output: firmware.hex / firmware.bin
+```
+
+### Key Components
+
+1. **Configuration System** - Parses `platformio.ini` and loads board-specific settings
+2. **Package Management** - Downloads, caches, and validates toolchains, cores, and libraries
+3. **Source Scanner** - Discovers source files and preprocesses Arduino .ino files
+4. **Compiler** - Wraps toolchain compilers (avr-gcc/xtensa-gcc) with proper flags
+5. **Linker** - Links object files and converts to firmware format
+6. **Library Manager** - Downloads and compiles GitHub library dependencies with LTO
+7. **Build Orchestrator** - Coordinates all phases into a unified pipeline
+8. **Deployer** - Handles firmware upload to devices
+9. **Serial Monitor** - Monitors device output with pattern matching
+
+## Technology Stack
+
+### Core Dependencies
+- **Python 3.10+** - Primary language
+- **requests** - HTTP downloads
+- **tqdm** - Progress bars
+- **pyserial** - Serial communication
+- **esptool** - ESP32 flashing
+
+### Build Tools
+- **AVR-GCC 7.3.0-atmel3.6.1-arduino7** - Arduino AVR compilation (auto-downloaded)
+- **Arduino AVR Core** - Downloaded from GitHub
+- **ESP32 Toolchains** - Platform-specific toolchains
+
+### Development Tools
+- **pytest** + **pytest-cov** - Testing and coverage
+- **ruff** - Fast Python linter
+- **pylint** - Code analysis
+- **mypy** / **pyright** - Type checking
+- **isort** - Import sorting
+
+## Configuration
+
+### Main Configuration File: `platformio.ini`
+Standard PlatformIO format with environment sections:
+```ini
+[env:uno]
+platform = atmelavr
+board = uno
+framework = arduino
+build_flags = -DCUSTOM_FLAG
+lib_deps =
+    https://github.com/user/library
+```
+
+### Key Configuration Options
+- **platform** - Target platform (atmelavr, espressif32)
+- **board** - Target board (uno, esp32dev, esp32c6, etc.)
+- **framework** - Framework to use (arduino)
+- **build_flags** - Compiler flags
+- **lib_deps** - Library dependencies (GitHub URLs)
+- **upload_port** - Serial port for uploading
+- **monitor_speed** - Serial monitor baud rate
+
+## CLI Usage
+
+### Build Command
+```bash
+zap build [project_dir] -e [environment] [-c/--clean] [-v/--verbose]
+```
+
+### Deploy Command
+```bash
+zap deploy [project_dir] -e [environment] [-p/--port] [-c/--clean] [--monitor]
+```
+
+### Monitor Command
+```bash
+zap monitor [project_dir] -e [environment] [-p/--port] [-b/--baud]
+            [--halt-on-error] [--halt-on-success] [-t/--timeout]
+```
+
+## Development Workflow
+
+### Setting Up Development Environment
+1. Clone the repository
+2. Install in development mode: `pip install -e .`
+3. Run tests: `pytest`
+4. Check types: `mypy src/zapio`
+5. Lint code: `ruff check src/zapio`
+
+### Running Tests
+The `tests/` directory contains integration test projects for various platforms. Each test project has a `platformio.ini` configuration and example sketches.
+
+### Common Development Tasks
+
+**Build a test project:**
+```bash
+zap build tests/uno -e uno
+```
+
+**Deploy to device:**
+```bash
+zap deploy tests/esp32dev -e esp32dev --monitor
+```
+
+**Run with verbose output:**
+```bash
+zap build tests/uno -e uno -v
+```
+
+## Performance
+
+- **Incremental builds:** ~0.76s
+- **Full builds:** ~3s (Arduino Uno)
+- **Package caching:** Automatic with checksum verification
+
+## Supported Platforms
+
+### Currently Supported
+- **Arduino Uno** (atmelavr platform) - Full support
+- **ESP32 variants** - In development:
+  - ESP32 Dev
+  - ESP32-C3
+  - ESP32-C6
+  - ESP32-S3
+
+### Platform Support Status
+- Arduino AVR: ✅ Complete
+- ESP32: 🚧 In progress
+
+## Recent Development Activity
+
+Latest commits show active development:
+- `feat(build): add configurable compiler and linker modules` (8318d54)
+- `feat(library): add support for downloading and compiling library dependencies` (4939425)
+- `update support for esp platforms` (0426c25)
+- `fix(source_scanner): exclude more directories from scanning` (da0cf08)
+
+## Troubleshooting
+
+### Common Issues
+
+**Build failures:**
+- Check `platformio.ini` syntax
+- Verify board configuration exists
+- Check toolchain download status
+- Use `-v` flag for verbose output
+
+**Package download issues:**
+- Check internet connection
+- Clear package cache in `~/.zapio/`
+- Verify GitHub URLs in `lib_deps`
+
+**Serial port access:**
+- Ensure user has permission to access serial ports
+- Check correct port with `--port` option
+- Verify device is connected
+
+## Contributing
+
+This project follows:
+- PEP 8 coding standards
+- Type hints for all functions
+- Comprehensive test coverage
+- Clear documentation
+
+## Additional Resources
+
+- **README.md** - Comprehensive user guide with quick start
+- **docs/build-system.md** - Detailed architecture documentation
+- **docs/platformio-ini-spec.md** - Configuration reference
+- **tests/** - Example projects demonstrating usage
