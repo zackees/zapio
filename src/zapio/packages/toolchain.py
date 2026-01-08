@@ -4,13 +4,13 @@ This module handles downloading, extracting, and managing the AVR-GCC
 toolchain required for building Arduino sketches.
 """
 
-import platform
 import sys
 from pathlib import Path
 from typing import Dict, Optional
 
 from .cache import Cache
 from .downloader import PackageDownloader
+from .platform_utils import PlatformDetector, PlatformError
 
 
 class ToolchainError(Exception):
@@ -105,33 +105,10 @@ class Toolchain:
         Raises:
             ToolchainError: If platform is not supported
         """
-        system = platform.system().lower()
-        machine = platform.machine().lower()
-
-        # Normalize platform name
-        if system == "windows":
-            plat = "windows"
-        elif system == "linux":
-            plat = "linux"
-        elif system == "darwin":
-            plat = "darwin"
-        else:
-            raise ToolchainError(f"Unsupported platform: {system}")
-
-        # Normalize architecture
-        if machine in ("x86_64", "amd64"):
-            arch = "x86_64"
-        elif machine in ("i386", "i686"):
-            arch = "i686"
-        elif machine in ("aarch64", "arm64"):
-            arch = "aarch64"
-        elif machine.startswith("arm"):
-            arch = "armv7l"
-        else:
-            # Default to x86_64 if unknown
-            arch = "x86_64"
-
-        return plat, arch
+        try:
+            return PlatformDetector.detect_avr_platform()
+        except PlatformError as e:
+            raise ToolchainError(str(e))
 
     def get_package_info(self) -> tuple[str, Optional[str]]:
         """Get package filename and checksum for current platform.

@@ -5,7 +5,6 @@ This module provides the `zap` CLI tool for building embedded firmware.
 """
 
 import argparse
-import shlex
 import sys
 import time
 from dataclasses import dataclass
@@ -13,6 +12,12 @@ from pathlib import Path
 from typing import Optional
 
 from zapio.build import BuildOrchestrator
+from zapio.cli_utils import (
+    EnvironmentDetector,
+    ErrorFormatter,
+    MonitorFlagParser,
+    PathValidator,
+)
 from zapio.deploy import Deployer
 from zapio.deploy.monitor import SerialMonitor
 
@@ -72,25 +77,9 @@ def build_command(args: BuildArgs) -> None:
         orchestrator = BuildOrchestrator(verbose=args.verbose)
 
         # Determine environment name
-        if args.environment:
-            env_name = args.environment
-        else:
-            # Auto-detect environment from platformio.ini
-            from zapio.config import PlatformIOConfig
-
-            ini_path = args.project_dir / "platformio.ini"
-            if not ini_path.exists():
-                raise FileNotFoundError(
-                    f"platformio.ini not found in {args.project_dir}"
-                )
-
-            config = PlatformIOConfig(ini_path)
-            detected_env = config.get_default_environment()
-
-            if not detected_env:
-                raise ValueError("No environments found in platformio.ini")
-
-            env_name = detected_env
+        env_name = EnvironmentDetector.detect_environment(
+            args.project_dir, args.environment
+        )
 
         # Show build start message
         if args.verbose:
@@ -113,8 +102,7 @@ def build_command(args: BuildArgs) -> None:
         # Check result
         if result.success:
             # Success output
-            print()
-            print("\033[1;32m✓ Build successful!\033[0m")
+            ErrorFormatter.print_success("Build successful!")
             print()
             print(f"Firmware: {result.hex_path}")
 
@@ -150,49 +138,17 @@ def build_command(args: BuildArgs) -> None:
             sys.exit(0)
         else:
             # Failure output
-            print()
-            print("\033[1;31m✗ Build failed!\033[0m")
-            print()
-            print(result.message)
+            ErrorFormatter.print_error("Build failed!", result.message)
             sys.exit(1)
 
     except FileNotFoundError as e:
-        print()
-        print("\033[1;31m✗ Error: File not found\033[0m")
-        print()
-        print(str(e))
-        print()
-        print(
-            "Make sure you're in a Zapio project directory with a platformio.ini file."
-        )
-        sys.exit(1)
-
+        ErrorFormatter.handle_file_not_found(e)
     except PermissionError as e:
-        print()
-        print("\033[1;31m✗ Error: Permission denied\033[0m")
-        print()
-        print(str(e))
-        sys.exit(1)
-
+        ErrorFormatter.handle_permission_error(e)
     except KeyboardInterrupt:
-        print()
-        print("\033[1;33m✗ Build interrupted\033[0m")
-        sys.exit(130)  # Standard exit code for SIGINT
-
+        ErrorFormatter.handle_keyboard_interrupt()
     except Exception as e:
-        print()
-        print("\033[1;31m✗ Unexpected error\033[0m")
-        print()
-        print(f"{type(e).__name__}: {e}")
-
-        if args.verbose:
-            import traceback
-
-            print()
-            print("Traceback:")
-            print(traceback.format_exc())
-
-        sys.exit(1)
+        ErrorFormatter.handle_unexpected_error(e, args.verbose)
 
 
 def deploy_command(args: DeployArgs) -> None:
@@ -211,25 +167,9 @@ def deploy_command(args: DeployArgs) -> None:
 
     try:
         # Determine environment name
-        if args.environment:
-            env_name = args.environment
-        else:
-            # Auto-detect environment from platformio.ini
-            from zapio.config import PlatformIOConfig
-
-            ini_path = args.project_dir / "platformio.ini"
-            if not ini_path.exists():
-                raise FileNotFoundError(
-                    f"platformio.ini not found in {args.project_dir}"
-                )
-
-            config = PlatformIOConfig(ini_path)
-            detected_env = config.get_default_environment()
-
-            if not detected_env:
-                raise ValueError("No environments found in platformio.ini")
-
-            env_name = detected_env
+        env_name = EnvironmentDetector.detect_environment(
+            args.project_dir, args.environment
+        )
 
         # If clean flag is set, build first
         if args.clean:
@@ -249,16 +189,11 @@ def deploy_command(args: DeployArgs) -> None:
             )
 
             if not build_result.success:
-                print()
-                print("\033[1;31m✗ Build failed!\033[0m")
-                print()
-                print(build_result.message)
+                ErrorFormatter.print_error("Build failed!", build_result.message)
                 sys.exit(1)
 
             if args.verbose:
-                print()
-                print("\033[1;32m✓ Build successful!\033[0m")
-                print()
+                ErrorFormatter.print_success("Build successful!")
 
         # Create deployer
         deployer = Deployer(verbose=args.verbose)
@@ -282,8 +217,7 @@ def deploy_command(args: DeployArgs) -> None:
 
         # Check result
         if result.success:
-            print()
-            print("\033[1;32m✓ Deployment successful!\033[0m")
+            ErrorFormatter.print_success("Deployment successful!")
             if result.port:
                 print(f"Port: {result.port}")
                 deployed_port = result.port
@@ -297,31 +231,7 @@ def deploy_command(args: DeployArgs) -> None:
                 print()
 
                 # Parse monitor flags
-                monitor_args = shlex.split(args.monitor)
-
-                # Build monitor arguments
-                mon_timeout = None
-                mon_halt_error = None
-                mon_halt_success = None
-                mon_baud = 115200
-
-                i = 0
-                while i < len(monitor_args):
-                    arg = monitor_args[i]
-                    if arg == "--timeout" and i + 1 < len(monitor_args):
-                        mon_timeout = int(monitor_args[i + 1])
-                        i += 2
-                    elif arg == "--halt-on-error" and i + 1 < len(monitor_args):
-                        mon_halt_error = monitor_args[i + 1]
-                        i += 2
-                    elif arg == "--halt-on-success" and i + 1 < len(monitor_args):
-                        mon_halt_success = monitor_args[i + 1]
-                        i += 2
-                    elif arg == "--baud" and i + 1 < len(monitor_args):
-                        mon_baud = int(monitor_args[i + 1])
-                        i += 2
-                    else:
-                        i += 1
+                flags = MonitorFlagParser.parse_monitor_flags(args.monitor)
 
                 # Start monitor
                 mon = SerialMonitor(verbose=args.verbose)
@@ -329,42 +239,22 @@ def deploy_command(args: DeployArgs) -> None:
                     project_dir=args.project_dir,
                     env_name=env_name,
                     port=deployed_port,
-                    baud=mon_baud,
-                    timeout=mon_timeout,
-                    halt_on_error=mon_halt_error,
-                    halt_on_success=mon_halt_success,
+                    baud=flags.baud,
+                    timeout=flags.timeout,
+                    halt_on_error=flags.halt_on_error,
+                    halt_on_success=flags.halt_on_success,
                 )
                 sys.exit(exit_code)
 
             sys.exit(0)
         else:
-            print()
-            print("\033[1;31m✗ Deployment failed!\033[0m")
-            print()
-            print(result.message)
+            ErrorFormatter.print_error("Deployment failed!", result.message)
             sys.exit(1)
 
     except FileNotFoundError as e:
-        print()
-        print("\033[1;31m✗ Error: File not found\033[0m")
-        print()
-        print(str(e))
-        sys.exit(1)
-
+        ErrorFormatter.handle_file_not_found(e)
     except Exception as e:
-        print()
-        print("\033[1;31m✗ Unexpected error\033[0m")
-        print()
-        print(f"{type(e).__name__}: {e}")
-
-        if args.verbose:
-            import traceback
-
-            print()
-            print("Traceback:")
-            print(traceback.format_exc())
-
-        sys.exit(1)
+        ErrorFormatter.handle_unexpected_error(e, args.verbose)
 
 
 def monitor_command(args: MonitorArgs) -> None:
@@ -382,25 +272,9 @@ def monitor_command(args: MonitorArgs) -> None:
         mon = SerialMonitor(verbose=args.verbose)
 
         # Determine environment name
-        if args.environment:
-            env_name = args.environment
-        else:
-            # Auto-detect environment from platformio.ini
-            from zapio.config import PlatformIOConfig
-
-            ini_path = args.project_dir / "platformio.ini"
-            if not ini_path.exists():
-                raise FileNotFoundError(
-                    f"platformio.ini not found in {args.project_dir}"
-                )
-
-            config = PlatformIOConfig(ini_path)
-            detected_env = config.get_default_environment()
-
-            if not detected_env:
-                raise ValueError("No environments found in platformio.ini")
-
-            env_name = detected_env
+        env_name = EnvironmentDetector.detect_environment(
+            args.project_dir, args.environment
+        )
 
         # Run monitor
         exit_code = mon.monitor(
@@ -416,26 +290,9 @@ def monitor_command(args: MonitorArgs) -> None:
         sys.exit(exit_code)
 
     except FileNotFoundError as e:
-        print()
-        print("\033[1;31m✗ Error: File not found\033[0m")
-        print()
-        print(str(e))
-        sys.exit(1)
-
+        ErrorFormatter.handle_file_not_found(e)
     except Exception as e:
-        print()
-        print("\033[1;31m✗ Unexpected error\033[0m")
-        print()
-        print(f"{type(e).__name__}: {e}")
-
-        if args.verbose:
-            import traceback
-
-            print()
-            print("Traceback:")
-            print(traceback.format_exc())
-
-        sys.exit(1)
+        ErrorFormatter.handle_unexpected_error(e, args.verbose)
 
 
 def main() -> None:
@@ -593,16 +450,7 @@ def main() -> None:
 
     # Validate project directory exists
     if hasattr(parsed_args, "project_dir"):
-        if not parsed_args.project_dir.exists():
-            print(
-                f"\033[1;31m✗ Error: Path does not exist: {parsed_args.project_dir}\033[0m"
-            )
-            sys.exit(2)
-        if not parsed_args.project_dir.is_dir():
-            print(
-                f"\033[1;31m✗ Error: Path is not a directory: {parsed_args.project_dir}\033[0m"
-            )
-            sys.exit(2)
+        PathValidator.validate_project_dir(parsed_args.project_dir)
 
     # Execute command
     if parsed_args.command == "build":

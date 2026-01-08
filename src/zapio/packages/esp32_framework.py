@@ -47,12 +47,13 @@ ESP-IDF Libraries Structure:
 """
 
 import json
-import tarfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from .archive_utils import ArchiveExtractor, URLVersionExtractor
 from .cache import Cache
-from .downloader import DownloadError, ExtractionError, PackageDownloader
+from .downloader import DownloadError, ExtractionError
+from .sdk_utils import SDKPathResolver
 
 
 class ESP32FrameworkError(Exception):
@@ -90,44 +91,17 @@ class ESP32Framework:
         self.framework_url = framework_url
         self.libs_url = libs_url
         self.show_progress = show_progress
-        self.downloader = PackageDownloader()
+        self.archive_extractor = ArchiveExtractor(show_progress=show_progress)
 
         # Extract version from URL (e.g., "3.3.4" from release tag)
-        self.version = self._extract_version_from_url(framework_url)
+        self.version = URLVersionExtractor.extract_version_from_url(
+            framework_url, prefix="esp32-"
+        )
 
         # Get framework paths from cache
         # We'll use a combined hash for both URLs to keep them together
         combined_url = f"{framework_url}|{libs_url}"
         self.framework_path = cache.get_platform_path(combined_url, self.version)
-
-    @staticmethod
-    def _extract_version_from_url(url: str) -> str:
-        """Extract version string from framework URL.
-
-        Args:
-            url: Framework URL (e.g., https://github.com/.../download/3.3.4/esp32-3.3.4.tar.xz)
-
-        Returns:
-            Version string (e.g., "3.3.4")
-        """
-        # URL format: .../releases/download/{version}/esp32-{version}.tar.xz
-        parts = url.split("/")
-        for i, part in enumerate(parts):
-            if part == "download" and i + 1 < len(parts):
-                version = parts[i + 1]
-                # Clean up version (remove any suffixes)
-                return version.split("-")[0] if "-" in version else version
-
-        # Fallback: extract from filename
-        filename = url.split("/")[-1]
-        if "esp32-" in filename:
-            version_part = filename.replace("esp32-", "").replace(".tar.xz", "")
-            return version_part.split("-")[0] if "-" in version_part else version_part
-
-        # Last resort: use URL hash
-        from .cache import Cache
-
-        return Cache.hash_url(url)[:8]
 
     def ensure_framework(self) -> Path:
         """Ensure framework is downloaded and extracted.
@@ -154,12 +128,12 @@ class ESP32Framework:
             self.framework_path.mkdir(parents=True, exist_ok=True)
 
             # Download and extract Arduino core
-            self._download_and_extract(
+            self.archive_extractor.download_and_extract(
                 self.framework_url, self.framework_path, "Arduino-ESP32 core"
             )
 
             # Download and extract ESP-IDF libraries
-            self._download_and_extract(
+            self.archive_extractor.download_and_extract(
                 self.libs_url,
                 self.framework_path / "tools" / "sdk",
                 "ESP-IDF libraries",
@@ -174,81 +148,6 @@ class ESP32Framework:
             raise ESP32FrameworkError(f"Failed to install ESP32 framework: {e}")
         except Exception as e:
             raise ESP32FrameworkError(f"Unexpected error installing framework: {e}")
-
-    def _download_and_extract(
-        self, url: str, target_dir: Path, description: str
-    ) -> None:
-        """Download and extract a .tar.xz archive.
-
-        Args:
-            url: URL to the .tar.xz archive
-            target_dir: Directory to extract contents into
-            description: Human-readable description for progress messages
-
-        Raises:
-            DownloadError: If download fails
-            ExtractionError: If extraction fails
-        """
-        archive_name = Path(url).name
-        archive_path = self.framework_path.parent / archive_name
-
-        # Download if not cached
-        if not archive_path.exists():
-            if self.show_progress:
-                print(f"Downloading {description}...")
-            archive_path.parent.mkdir(parents=True, exist_ok=True)
-            self.downloader.download(
-                url, archive_path, show_progress=self.show_progress
-            )
-        else:
-            if self.show_progress:
-                print(f"Using cached {description} archive")
-
-        # Extract to target directory
-        if self.show_progress:
-            print(f"Extracting {description}...")
-
-        # Create temp extraction directory
-        temp_extract = target_dir.parent / f"temp_extract_{archive_name}"
-        temp_extract.mkdir(parents=True, exist_ok=True)
-
-        try:
-            # Extract .tar.xz archive
-            with tarfile.open(archive_path, "r:xz") as tar:
-                tar.extractall(temp_extract)
-
-            # Find the extracted directory
-            # Usually it's a subdirectory like "esp32/" or directly extracted
-            extracted_items = list(temp_extract.iterdir())
-
-            if len(extracted_items) == 1 and extracted_items[0].is_dir():
-                # Single directory extracted - use its contents
-                source_dir = extracted_items[0]
-            else:
-                # Multiple items or files - use temp_extract as source
-                source_dir = temp_extract
-
-            # Move contents to target directory
-            target_dir.mkdir(parents=True, exist_ok=True)
-            import shutil
-
-            for item in source_dir.iterdir():
-                dest = target_dir / item.name
-                if item.is_dir():
-                    if dest.exists():
-                        shutil.rmtree(dest)
-                    shutil.copytree(item, dest)
-                else:
-                    if dest.exists():
-                        dest.unlink()
-                    shutil.copy2(item, dest)
-
-        finally:
-            # Clean up temp directory
-            if temp_extract.exists():
-                import shutil
-
-                shutil.rmtree(temp_extract, ignore_errors=True)
 
     def is_installed(self) -> bool:
         """Check if framework is already installed.
@@ -377,114 +276,8 @@ class ESP32Framework:
         Returns:
             List of include directory paths (305 paths for esp32c6)
         """
-        # Read the SDK's includes file
-        includes_file = self.get_sdk_flags_dir(mcu) / "includes"
-        if not includes_file.exists():
-            # Fallback to recursive discovery if includes file doesn't exist
-            return self._get_sdk_includes_recursive(mcu)
-
-        try:
-            # Read includes file (single line with space-separated entries)
-            includes_content = includes_file.read_text().strip()
-
-            # Parse the includes: "-iwithprefixbefore path1 -iwithprefixbefore path2 ..."
-            # The -iwithprefixbefore flag means to prepend the SDK include directory
-            sdk_include_base = self.get_sdk_dir() / mcu / "include"
-
-            includes = []
-            parts = includes_content.split()
-            i = 0
-            while i < len(parts):
-                if parts[i] == "-iwithprefixbefore":
-                    # Next part is the relative path
-                    if i + 1 < len(parts):
-                        rel_path = parts[i + 1]
-                        abs_path = sdk_include_base / rel_path
-                        if abs_path.exists():
-                            includes.append(abs_path)
-                        i += 2
-                    else:
-                        i += 1
-                else:
-                    i += 1
-
-            return includes
-
-        except Exception as e:
-            # Fallback to recursive discovery on error
-            if self.show_progress:
-                print(f"Warning: Failed to parse includes file: {e}")
-                print("Falling back to recursive include discovery")
-            return self._get_sdk_includes_recursive(mcu)
-
-    def _get_sdk_includes_recursive(self, mcu: str) -> List[Path]:
-        """Fallback method: recursively discover include directories.
-
-        This was the original implementation, now kept as a fallback.
-        It discovers 557 paths for esp32c6 but causes C++ stdlib conflicts.
-
-        Args:
-            mcu: MCU type (e.g., "esp32c6", "esp32s3")
-
-        Returns:
-            List of include directory paths
-        """
-        sdk_mcu_dir = self.get_sdk_dir() / mcu / "include"
-        if not sdk_mcu_dir.exists():
-            return []
-
-        # Recursively find all subdirectories with header files
-        # ESP-IDF has a deep nested structure for includes
-        includes = []
-
-        def add_includes_recursive(
-            directory: Path, max_depth: int = 6, current_depth: int = 0
-        ):
-            """Recursively add directories that contain header files."""
-            if current_depth > max_depth:
-                return
-
-            # Add this directory if it contains headers or is named 'include'
-            has_headers = any(directory.glob("*.h"))
-            if directory.name == "include" or has_headers:
-                includes.append(directory)
-
-            # Special handling for parent directories that have subdirs with headers
-            # but no headers themselves. Examples:
-            # - .../soc/esp32c6/register/ (has soc/ subdir with headers)
-            # - .../esp_rom/esp32c6/include/esp32c6/ (has rom/ subdir with headers)
-            # Only add if it matches specific patterns to avoid adding too many paths
-            is_parent_dir = False
-            if not has_headers:
-                # Check for specific directory names that are known parent directories
-                # Only add 'register' and MCU dirs that are under 'esp_rom' to be conservative
-                if directory.name == "register":
-                    is_parent_dir = True
-                elif directory.name.startswith("esp32"):
-                    # Only add MCU directories if they're under esp_rom component
-                    if "esp_rom" in str(directory):
-                        is_parent_dir = True
-
-                if is_parent_dir:
-                    try:
-                        # Check if it has immediate subdirs with headers
-                        for subdir in directory.iterdir():
-                            if subdir.is_dir() and any(subdir.glob("*.h")):
-                                includes.append(directory)
-                                break
-                    except (PermissionError, OSError):
-                        pass
-
-            # Recurse into subdirectories
-            try:
-                for subdir in directory.iterdir():
-                    if subdir.is_dir() and not subdir.name.startswith("."):
-                        add_includes_recursive(subdir, max_depth, current_depth + 1)
-            except (PermissionError, OSError):
-                pass
-
-        add_includes_recursive(sdk_mcu_dir)
-        return includes
+        sdk_resolver = SDKPathResolver(self.get_sdk_dir(), self.show_progress)
+        return sdk_resolver.get_sdk_includes(mcu)
 
     def get_sdk_libs(self, mcu: str, flash_mode: str = "qio") -> List[Path]:
         """Get list of ESP-IDF precompiled libraries for a specific MCU.
@@ -496,25 +289,8 @@ class ESP32Framework:
         Returns:
             List of .a library file paths
         """
-        libs = []
-
-        # Get main SDK libraries
-        sdk_lib_dir = self.get_sdk_dir() / mcu / "lib"
-        if sdk_lib_dir.exists():
-            libs.extend(sdk_lib_dir.glob("*.a"))
-
-        # Get flash mode-specific libraries (qio_qspi or dio_qspi)
-        # For ESP32-C6: Only libspi_flash.a
-        # For ESP32-S3: Multiple libraries including libfreertos.a, libesp_system.a, etc.
-        flash_lib_dir = self.get_sdk_dir() / mcu / f"{flash_mode}_qspi"
-        if flash_lib_dir.exists():
-            # Collect ALL .a libraries from flash mode directory
-            # ESP32-S3 has: libfreertos.a, libspi_flash.a, libesp_system.a,
-            #               libesp_hw_support.a, libesp_psram.a, libbootloader_support.a
-            flash_libs = list(flash_lib_dir.glob("*.a"))
-            libs.extend(flash_libs)
-
-        return libs
+        sdk_resolver = SDKPathResolver(self.get_sdk_dir(), self.show_progress)
+        return sdk_resolver.get_sdk_libs(mcu, flash_mode)
 
     def get_sdk_flags_dir(self, mcu: str) -> Path:
         """Get path to SDK flags directory for a specific MCU.
@@ -525,7 +301,8 @@ class ESP32Framework:
         Returns:
             Path to flags directory
         """
-        return self.get_sdk_dir() / mcu / "flags"
+        sdk_resolver = SDKPathResolver(self.get_sdk_dir(), self.show_progress)
+        return sdk_resolver.get_sdk_flags_dir(mcu)
 
     def get_tools_dir(self) -> Path:
         """Get path to tools directory.

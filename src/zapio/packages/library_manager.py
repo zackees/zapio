@@ -6,102 +6,19 @@ directory for fast rebuilds and proper invalidation.
 """
 
 import json
-import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
 from zapio.packages.downloader import PackageDownloader
+from zapio.packages.github_utils import GitHubURLOptimizer
+from zapio.packages.library_compiler import LibraryCompilationError, LibraryCompiler
 
 
 class LibraryError(Exception):
     """Base exception for library management errors."""
 
     pass
-
-
-class GitHubURLOptimizer:
-    """Optimizes GitHub URLs to use zip downloads instead of git clone."""
-
-    @staticmethod
-    def is_github_url(url: str) -> bool:
-        """Check if a URL is a GitHub repository URL.
-
-        Args:
-            url: The URL to check
-
-        Returns:
-            True if the URL is a GitHub repository
-        """
-        parsed = urlparse(url)
-        return parsed.netloc.lower() in ("github.com", "www.github.com")
-
-    @staticmethod
-    def detect_default_branch(url: str) -> str:
-        """Detect the default branch name for a GitHub repository.
-
-        Makes a HEAD request to determine if the repo uses 'main' or 'master'.
-
-        Args:
-            url: GitHub repository URL
-
-        Returns:
-            Default branch name ('main' or 'master')
-        """
-        try:
-            import requests
-
-            # Try main first (modern default)
-            test_url = f"{url}/archive/refs/heads/main.zip"
-            response = requests.head(test_url, timeout=5, allow_redirects=True)
-            if response.status_code == 200:
-                return "main"
-
-            # Fall back to master
-            test_url = f"{url}/archive/refs/heads/master.zip"
-            response = requests.head(test_url, timeout=5, allow_redirects=True)
-            if response.status_code == 200:
-                return "master"
-
-            # Default to main if both fail
-            return "main"
-
-        except Exception:
-            # If we can't detect, default to main
-            return "main"
-
-    @classmethod
-    def optimize_url(cls, url: str) -> str:
-        """Convert a GitHub URL to use zip download instead of git clone.
-
-        Transforms:
-            https://github.com/FastLED/FastLED
-        Into:
-            https://github.com/FastLED/FastLED/archive/refs/heads/main.zip
-
-        Args:
-            url: Original GitHub URL
-
-        Returns:
-            Optimized zip download URL
-        """
-        if not cls.is_github_url(url):
-            return url
-
-        # Remove trailing slashes and .git suffix
-        url = url.rstrip("/")
-        if url.endswith(".git"):
-            url = url[:-4]
-
-        # Check if already a zip URL
-        if "/archive/" in url:
-            return url
-
-        # Detect default branch
-        branch = cls.detect_default_branch(url)
-
-        # Build zip URL
-        return f"{url}/archive/refs/heads/{branch}.zip"
 
 
 class LibraryInfo:
@@ -449,24 +366,12 @@ class LibraryManager:
         Returns:
             Tuple of (needs_rebuild, reason)
         """
-        if not library.archive_file.exists():
-            return True, "Archive not found"
-
-        if not library.info_file.exists():
-            return True, "Info file missing"
-
-        info = library.get_info()
-        if info is None:
-            return True, "Could not load info"
-
-        # Check if compile commands changed
-        current_compile_cmd = " ".join(compiler_flags)
-        stored_compile_cmd = " ".join(info.compile_commands)
-
-        if current_compile_cmd != stored_compile_cmd:
-            return True, "Compiler flags changed"
-
-        return False, ""
+        return LibraryCompiler.needs_rebuild(
+            library.archive_file,
+            library.info_file,
+            compiler_flags,
+            library.get_info,
+        )
 
     def compile_library(
         self,
@@ -498,9 +403,6 @@ class LibraryManager:
             LibraryError: If compilation fails
         """
         try:
-            if show_progress:
-                print(f"Compiling library: {library.name}")
-
             # Get source files
             sources = library.get_source_files()
             if not sources:
@@ -510,90 +412,19 @@ class LibraryManager:
             lib_includes = library.get_include_dirs()
             all_includes = list(include_paths) + lib_includes
 
-            # Compile each source file
-            object_files = []
-            gcc_path = compiler_path.parent / "avr-gcc"
-            gxx_path = compiler_path.parent / "avr-g++"
-
-            for source in sources:
-                # Determine compiler based on extension
-                if source.suffix in [".cpp", ".cc", ".cxx"]:
-                    compiler = gxx_path
-                    std_flag = "-std=gnu++11"
-                else:
-                    compiler = gcc_path
-                    std_flag = "-std=gnu11"
-
-                # Output object file
-                obj_file = library.lib_dir / f"{source.stem}.o"
-
-                # Build compile command
-                # Use -flto with -fno-fat-lto-objects to generate only LTO bytecode
-                # This avoids assembly errors with complex code like FastLED
-                # The trade-off is we must link with object files, not archives
-                cmd = [
-                    str(compiler),
-                    "-c",
-                    "-g",
-                    "-Os",
-                    std_flag,
-                    "-ffunction-sections",
-                    "-fdata-sections",
-                    "-flto",
-                    "-fno-fat-lto-objects",  # LTO bytecode only, no assembly
-                    f"-mmcu={mcu}",
-                ]
-
-                # Add defines from list (format: "KEY=value" or "KEY")
-                for define in defines:
-                    cmd.append(f"-D{define}")
-
-                # Add include paths
-                for inc_path in all_includes:
-                    cmd.append(f"-I{inc_path}")
-
-                # Add extra flags
-                cmd.extend(extra_flags)
-
-                # Add source and output
-                cmd.extend(["-o", str(obj_file), str(source)])
-
-                # Compile
-                if show_progress:
-                    print(f"  Compiling {source.name}...")
-
-                result = subprocess.run(
-                    cmd, capture_output=True, text=True, encoding="utf-8"
-                )
-
-                if result.returncode != 0:
-                    raise LibraryError(f"Failed to compile {source}:\n{result.stderr}")
-
-                object_files.append(obj_file)
-
-            # Create static archive using avr-ar
-            ar_path = compiler_path.parent / "avr-ar"
-
-            if show_progress:
-                print(f"  Creating archive: {library.archive_file.name}")
-
-            # Remove old archive if exists
-            if library.archive_file.exists():
-                library.archive_file.unlink()
-
-            # Create new archive
-            cmd = [str(ar_path), "rcs", str(library.archive_file)] + [
-                str(obj) for obj in object_files
-            ]
-
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, encoding="utf-8"
+            # Compile library using LibraryCompiler
+            archive_file, _, compile_commands = LibraryCompiler.compile_library(
+                library_name=library.name,
+                lib_dir=library.lib_dir,
+                source_files=sources,
+                include_dirs=all_includes,
+                compiler_path=compiler_path,
+                mcu=mcu,
+                f_cpu=f_cpu,
+                defines=defines,
+                extra_flags=extra_flags,
+                show_progress=show_progress,
             )
-
-            if result.returncode != 0:
-                raise LibraryError(
-                    f"Failed to create archive for {library.name}:\n{result.stderr}"
-                )
 
             # Update info.json with compile information
             info = library.get_info() or LibraryInfo(
@@ -607,22 +438,14 @@ class LibraryManager:
             )
 
             info.compiler = str(compiler_path)
-            info.compile_commands = cmd
-            info.link_commands = [str(library.archive_file)]
+            info.compile_commands = compile_commands
+            info.link_commands = [str(archive_file)]
             info.save(library.info_file)
 
-            # Keep object files for LTO linking (don't delete them)
-            # Object files are needed for proper LTO symbol resolution
+            return archive_file
 
-            if show_progress:
-                print(f"Library '{library.name}' compiled successfully")
-
-            return library.archive_file
-
-        except subprocess.CalledProcessError as e:
-            raise LibraryError(
-                f"Compilation failed for library '{library.name}': {e}"
-            ) from e
+        except LibraryCompilationError as e:
+            raise LibraryError(str(e)) from e
         except Exception as e:
             raise LibraryError(
                 f"Failed to compile library '{library.name}': {e}"

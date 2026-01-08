@@ -4,11 +4,18 @@ This module handles downloading, caching, and managing external packages
 including toolchains, platforms, and libraries.
 """
 
+from .archive_utils import ArchiveExtractionError, ArchiveExtractor, URLVersionExtractor
 from .arduino_core import ArduinoCore, ArduinoCoreError
 from .cache import Cache
 from .downloader import ChecksumError, DownloadError, ExtractionError, PackageDownloader
 from .esp32_platform import ESP32Platform, ESP32PlatformError
+from .github_utils import GitHubURLOptimizer
+from .library_compiler import LibraryCompilationError, LibraryCompiler
+from .platform_utils import PlatformDetector, PlatformError
+from .sdk_utils import SDKPathResolver
 from .toolchain import Toolchain, ToolchainError
+from .toolchain_binaries import BinaryNotFoundError, ToolchainBinaryFinder
+from .toolchain_metadata import MetadataParseError, ToolchainMetadataParser
 
 __all__ = [
     "Cache",
@@ -22,4 +29,17 @@ __all__ = [
     "ArduinoCoreError",
     "ESP32Platform",
     "ESP32PlatformError",
+    "GitHubURLOptimizer",
+    "LibraryCompiler",
+    "LibraryCompilationError",
+    "ArchiveExtractor",
+    "ArchiveExtractionError",
+    "URLVersionExtractor",
+    "SDKPathResolver",
+    "PlatformDetector",
+    "PlatformError",
+    "ToolchainBinaryFinder",
+    "BinaryNotFoundError",
+    "ToolchainMetadataParser",
+    "MetadataParseError",
 ]

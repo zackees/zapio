@@ -17,6 +17,7 @@ from typing import List, Dict, Any, Optional, Union
 from ..packages.esp32_platform import ESP32Platform
 from ..packages.esp32_toolchain import ESP32Toolchain
 from ..packages.esp32_framework import ESP32Framework
+from .binary_generator import BinaryGenerator
 
 
 class ConfigurableLinkerError(Exception):
@@ -91,6 +92,16 @@ class ConfigurableLinker:
         # Cache for linker paths
         self._linker_scripts_cache: Optional[List[Path]] = None
         self._sdk_libs_cache: Optional[List[Path]] = None
+
+        # Initialize binary generator
+        self.binary_generator = BinaryGenerator(
+            mcu=self.mcu,
+            board_config=self.board_config,
+            build_dir=build_dir,
+            toolchain=toolchain,
+            framework=framework,
+            show_progress=show_progress
+        )
 
     def get_linker_scripts(self) -> List[Path]:
         """Get list of linker script paths for the MCU.
@@ -328,166 +339,11 @@ class ConfigurableLinker:
         Raises:
             ConfigurableLinkerError: If conversion fails
         """
-        if not elf_path.exists():
-            raise ConfigurableLinkerError(f"ELF file not found: {elf_path}")
-
-        # Generate output path if not provided
-        if output_bin is None:
-            output_bin = self.build_dir / "firmware.bin"
-
-        # For ESP32 platforms, use esptool.py elf2image instead of objcopy
-        # This generates a properly formatted ESP32 flash image without memory gaps
-        if self.mcu.startswith("esp32"):
-            return self._generate_bin_esp32(elf_path, output_bin)
-        else:
-            return self._generate_bin_objcopy(elf_path, output_bin)
-
-    def _generate_bin_esp32(self, elf_path: Path, output_bin: Path) -> Path:
-        """Generate firmware.bin for ESP32 using esptool.py elf2image.
-
-        Args:
-            elf_path: Path to firmware.elf
-            output_bin: Path for output .bin file
-
-        Returns:
-            Path to generated firmware.bin
-
-        Raises:
-            ConfigurableLinkerError: If conversion fails
-        """
-        import sys
-
-        # Get chip type from MCU
-        chip = self.mcu  # e.g., "esp32c6", "esp32s3"
-
-        # Get flash parameters from board config
-        flash_mode = self.board_config.get("build", {}).get("flash_mode", "dio")
-        flash_freq = self.board_config.get("build", {}).get("f_flash", "80m")
-        flash_size = self.board_config.get("build", {}).get("flash_size", "4MB")
-
-        # Convert frequency to esptool format if needed
-        if isinstance(flash_freq, (int, float)):
-            # Convert Hz to MHz format like "80m"
-            flash_freq = f"{int(flash_freq // 1000000)}m"
-        elif isinstance(flash_freq, str) and flash_freq.endswith('L'):
-            # Handle string representation of long integers like "80000000L"
-            freq_value = int(flash_freq.rstrip('L'))
-            flash_freq = f"{freq_value // 1000000}m"
-
-        # Build esptool.py elf2image command
-        cmd = [
-            sys.executable,
-            "-m",
-            "esptool",
-            "--chip",
-            chip,
-            "elf2image",
-            "--flash-mode",
-            flash_mode,
-            "--flash-freq",
-            flash_freq,
-            "--flash-size",
-            flash_size,
-            "--elf-sha256-offset",
-            "0xb0",
-            "-o",
-            str(output_bin),
-            str(elf_path)
-        ]
-
-        if self.show_progress:
-            print("Generating firmware.bin using esptool.py elf2image...")
-
         try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=False,  # Don't decode as text - esptool may output binary data
-                timeout=60
-            )
-
-            if result.returncode != 0:
-                error_msg = "Binary generation failed\n"
-                stderr = result.stderr.decode('utf-8', errors='replace') if result.stderr else ""
-                stdout = result.stdout.decode('utf-8', errors='replace') if result.stdout else ""
-                error_msg += f"stderr: {stderr}\n"
-                error_msg += f"stdout: {stdout}"
-                raise ConfigurableLinkerError(error_msg)
-
-            if not output_bin.exists():
-                raise ConfigurableLinkerError(f"firmware.bin was not created: {output_bin}")
-
-            if self.show_progress:
-                size = output_bin.stat().st_size
-                print(f"✓ Created firmware.bin: {size:,} bytes ({size / 1024:.2f} KB)")
-
-            return output_bin
-
-        except subprocess.TimeoutExpired:
-            raise ConfigurableLinkerError("Binary generation timeout")
+            return self.binary_generator.generate_bin(elf_path, output_bin)
         except Exception as e:
-            raise ConfigurableLinkerError(f"Failed to generate binary: {e}")
+            raise ConfigurableLinkerError(f"Binary generation failed: {e}")
 
-    def _generate_bin_objcopy(self, elf_path: Path, output_bin: Path) -> Path:
-        """Generate firmware.bin using objcopy (for non-ESP32 platforms).
-
-        Args:
-            elf_path: Path to firmware.elf
-            output_bin: Path for output .bin file
-
-        Returns:
-            Path to generated firmware.bin
-
-        Raises:
-            ConfigurableLinkerError: If conversion fails
-        """
-        # Get objcopy tool
-        objcopy_path = self.toolchain.get_objcopy_path()
-        if objcopy_path is None or not objcopy_path.exists():
-            raise ConfigurableLinkerError(
-                f"objcopy not found: {objcopy_path}. " +
-                "Ensure toolchain is installed."
-            )
-
-        # Build objcopy command
-        cmd = [
-            str(objcopy_path),
-            "-O", "binary",
-            str(elf_path),
-            str(output_bin)
-        ]
-
-        # Execute objcopy
-        if self.show_progress:
-            print("Generating firmware.bin...")
-
-        try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-
-            if result.returncode != 0:
-                error_msg = "Binary generation failed\n"
-                error_msg += f"stderr: {result.stderr}\n"
-                error_msg += f"stdout: {result.stdout}"
-                raise ConfigurableLinkerError(error_msg)
-
-            if not output_bin.exists():
-                raise ConfigurableLinkerError(f"firmware.bin was not created: {output_bin}")
-
-            if self.show_progress:
-                size = output_bin.stat().st_size
-                print(f"✓ Created firmware.bin: {size:,} bytes ({size / 1024 / 1024:.2f} MB)")
-
-            return output_bin
-
-        except subprocess.TimeoutExpired:
-            raise ConfigurableLinkerError("Binary generation timeout")
-        except Exception as e:
-            raise ConfigurableLinkerError(f"Failed to generate binary: {e}")
 
     def generate_bootloader(self, output_bin: Optional[Path] = None) -> Path:
         """Generate bootloader.bin from bootloader ELF file.
@@ -501,98 +357,10 @@ class ConfigurableLinker:
         Raises:
             ConfigurableLinkerError: If generation fails
         """
-        if not self.mcu.startswith("esp32"):
-            raise ConfigurableLinkerError(
-                f"Bootloader generation only supported for ESP32 platforms, not {self.mcu}"
-            )
-
-        # Generate output path if not provided
-        if output_bin is None:
-            output_bin = self.build_dir / "bootloader.bin"
-
-        # Get flash parameters from board config
-        flash_mode = self.board_config.get("build", {}).get("flash_mode", "dio")
-        flash_freq = self.board_config.get("build", {}).get("f_flash", "80m")
-        flash_size = self.board_config.get("build", {}).get("flash_size", "4MB")
-
-        # Convert frequency to esptool format if needed
-        if isinstance(flash_freq, (int, float)):
-            flash_freq = f"{int(flash_freq // 1000000)}m"
-        elif isinstance(flash_freq, str) and flash_freq.endswith('L'):
-            freq_value = int(flash_freq.rstrip('L'))
-            flash_freq = f"{freq_value // 1000000}m"
-
-        # Find bootloader ELF file in framework SDK
-        bootloader_name = f"bootloader_{flash_mode}_{flash_freq.replace('m', 'm')}.elf"
-        sdk_bin_dir = self.framework.get_sdk_dir() / self.mcu / "bin"
-        bootloader_elf = sdk_bin_dir / bootloader_name
-
-        if not bootloader_elf.exists():
-            raise ConfigurableLinkerError(
-                f"Bootloader ELF not found: {bootloader_elf}"
-            )
-
-        # CRITICAL FIX: ESP32-C6/C3/C2/H2 bootloaders MUST be generated in DIO mode
-        # even if the application uses QIO. The ROM bootloader can only load the
-        # second-stage bootloader in DIO mode. QIO is enabled later by the second-stage
-        # bootloader for the application. This is a known issue with esptool v4.7+.
-        # See: https://github.com/espressif/arduino-esp32/discussions/10418
-        bootloader_flash_mode = flash_mode
-        if self.mcu in ["esp32c6", "esp32c3", "esp32c2", "esp32h2"]:
-            bootloader_flash_mode = "dio"
-
-        # Generate bootloader.bin using esptool.py elf2image
-        import sys
-        cmd = [
-            sys.executable,
-            "-m",
-            "esptool",
-            "--chip",
-            self.mcu,
-            "elf2image",
-            "--flash-mode",
-            bootloader_flash_mode,
-            "--flash-freq",
-            flash_freq,
-            "--flash-size",
-            flash_size,
-            "-o",
-            str(output_bin),
-            str(bootloader_elf)
-        ]
-
-        if self.show_progress:
-            print("Generating bootloader.bin...")
-
         try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=False,
-                timeout=60
-            )
-
-            if result.returncode != 0:
-                error_msg = "Bootloader generation failed\n"
-                stderr = result.stderr.decode('utf-8', errors='replace') if result.stderr else ""
-                stdout = result.stdout.decode('utf-8', errors='replace') if result.stdout else ""
-                error_msg += f"stderr: {stderr}\n"
-                error_msg += f"stdout: {stdout}"
-                raise ConfigurableLinkerError(error_msg)
-
-            if not output_bin.exists():
-                raise ConfigurableLinkerError(f"bootloader.bin was not created: {output_bin}")
-
-            if self.show_progress:
-                size = output_bin.stat().st_size
-                print(f"✓ Created bootloader.bin: {size:,} bytes ({size / 1024:.2f} KB)")
-
-            return output_bin
-
-        except subprocess.TimeoutExpired:
-            raise ConfigurableLinkerError("Bootloader generation timeout")
+            return self.binary_generator.generate_bootloader(output_bin)
         except Exception as e:
-            raise ConfigurableLinkerError(f"Failed to generate bootloader: {e}")
+            raise ConfigurableLinkerError(f"Bootloader generation failed: {e}")
 
     def generate_partition_table(self, output_bin: Optional[Path] = None) -> Path:
         """Generate partitions.bin from partition CSV file.
@@ -606,71 +374,10 @@ class ConfigurableLinker:
         Raises:
             ConfigurableLinkerError: If generation fails
         """
-        if not self.mcu.startswith("esp32"):
-            raise ConfigurableLinkerError(
-                f"Partition table generation only supported for ESP32 platforms, not {self.mcu}"
-            )
-
-        # Generate output path if not provided
-        if output_bin is None:
-            output_bin = self.build_dir / "partitions.bin"
-
-        # Find partition CSV file - use default.csv from framework
-        partitions_csv = self.framework.framework_path / "tools" / "partitions" / "default.csv"
-
-        if not partitions_csv.exists():
-            raise ConfigurableLinkerError(
-                f"Partition CSV not found: {partitions_csv}"
-            )
-
-        # Find gen_esp32part.py tool - also in framework
-        gen_tool = self.framework.framework_path / "tools" / "gen_esp32part.py"
-
-        if not gen_tool.exists():
-            raise ConfigurableLinkerError(
-                f"Partition generation tool not found: {gen_tool}"
-            )
-
-        # Generate partition table using gen_esp32part.py
-        import sys
-        cmd = [
-            sys.executable,
-            str(gen_tool),
-            "-q",
-            str(partitions_csv),
-            str(output_bin)
-        ]
-
-        if self.show_progress:
-            print("Generating partitions.bin...")
-
         try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-
-            if result.returncode != 0:
-                error_msg = "Partition table generation failed\n"
-                error_msg += f"stderr: {result.stderr}\n"
-                error_msg += f"stdout: {result.stdout}"
-                raise ConfigurableLinkerError(error_msg)
-
-            if not output_bin.exists():
-                raise ConfigurableLinkerError(f"partitions.bin was not created: {output_bin}")
-
-            if self.show_progress:
-                size = output_bin.stat().st_size
-                print(f"✓ Created partitions.bin: {size:,} bytes")
-
-            return output_bin
-
-        except subprocess.TimeoutExpired:
-            raise ConfigurableLinkerError("Partition table generation timeout")
+            return self.binary_generator.generate_partition_table(output_bin)
         except Exception as e:
-            raise ConfigurableLinkerError(f"Failed to generate partition table: {e}")
+            raise ConfigurableLinkerError(f"Partition table generation failed: {e}")
 
     def get_linker_info(self) -> Dict[str, Any]:
         """Get information about the linker configuration.

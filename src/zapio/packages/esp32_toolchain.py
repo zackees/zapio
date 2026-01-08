@@ -37,14 +37,14 @@ Supported Architectures:
     - Xtensa: ESP32, ESP32-S2, ESP32-S3, ESP32-P4
 """
 
-import json
-import platform
-import sys
 from pathlib import Path
 from typing import Any, Dict, Literal, Optional, cast
 
 from .cache import Cache
 from .downloader import DownloadError, ExtractionError, PackageDownloader
+from .platform_utils import PlatformDetector
+from .toolchain_binaries import ToolchainBinaryFinder
+from .toolchain_metadata import MetadataParseError, ToolchainMetadataParser
 
 
 class ESP32ToolchainError(Exception):
@@ -113,6 +113,12 @@ class ESP32Toolchain:
         # Get binary prefix for this toolchain type
         self.binary_prefix = self.TOOLCHAIN_NAMES.get(toolchain_type, toolchain_type)
 
+        # Initialize utilities
+        self.metadata_parser = ToolchainMetadataParser(self.downloader)
+        self.binary_finder = ToolchainBinaryFinder(
+            self.toolchain_path, self.binary_prefix
+        )
+
     @staticmethod
     def _extract_version_from_url(url: str) -> str:
         """Extract version string from toolchain URL.
@@ -165,29 +171,10 @@ class ESP32Toolchain:
         Returns:
             Platform identifier (win32, win64, linux-amd64, linux-arm64, macos, macos-arm64)
         """
-        system = platform.system().lower()
-        machine = platform.machine().lower()
-
-        if system == "windows":
-            # Check if 64-bit
-            return "win64" if sys.maxsize > 2**32 else "win32"
-        elif system == "linux":
-            if "aarch64" in machine or "arm64" in machine:
-                return "linux-arm64"
-            elif "arm" in machine:
-                # Check for hard float vs soft float
-                return "linux-armhf"  # Default to hard float
-            elif "i686" in machine or "i386" in machine:
-                return "linux-i686"
-            else:
-                return "linux-amd64"
-        elif system == "darwin":
-            if "arm64" in machine or "aarch64" in machine:
-                return "macos-arm64"
-            else:
-                return "macos"
-        else:
-            raise ESP32ToolchainError(f"Unsupported platform: {system} {machine}")
+        try:
+            return PlatformDetector.detect_esp32_platform()
+        except Exception as e:
+            raise ESP32ToolchainError(str(e))
 
     def _get_platform_url_from_metadata(self) -> str:
         """Download metadata package and extract platform-specific toolchain URL.
@@ -198,75 +185,19 @@ class ESP32Toolchain:
         Raises:
             ESP32ToolchainError: If metadata cannot be parsed or platform not found
         """
-        # Download metadata package
-        metadata_path = self.toolchain_path
-        if not metadata_path.exists():
-            if self.show_progress:
-                print("Downloading toolchain metadata...")
+        try:
+            current_platform = self.detect_platform()
+            toolchain_name = f"toolchain-{self.toolchain_type}"
 
-            archive_name = Path(self.toolchain_url).name
-            archive_path = metadata_path.parent / archive_name
-
-            if not archive_path.exists():
-                archive_path.parent.mkdir(parents=True, exist_ok=True)
-                self.downloader.download(
-                    self.toolchain_url, archive_path, show_progress=self.show_progress
-                )
-
-            # Extract metadata
-            temp_extract = metadata_path.parent / "temp_metadata"
-            temp_extract.mkdir(parents=True, exist_ok=True)
-
-            self.downloader.extract_archive(
-                archive_path, temp_extract, show_progress=False
+            return self.metadata_parser.get_platform_url(
+                metadata_url=self.toolchain_url,
+                metadata_path=self.toolchain_path,
+                toolchain_name=toolchain_name,
+                platform=current_platform,
+                show_progress=self.show_progress,
             )
-
-            # Move to final location
-            if metadata_path.exists():
-                import shutil
-
-                shutil.rmtree(metadata_path)
-
-            temp_extract.rename(metadata_path)
-
-        # Parse tools.json
-        tools_json_path = metadata_path / "tools.json"
-        if not tools_json_path.exists():
-            raise ESP32ToolchainError("tools.json not found in metadata package")
-
-        with open(tools_json_path, "r") as f:
-            tools_data = json.load(f)
-
-        # Find the toolchain tool
-        tools = tools_data.get("tools", [])
-        for tool in tools:
-            if tool.get("name") == f"toolchain-{self.toolchain_type}":
-                # Get versions
-                versions = tool.get("versions", [])
-                if not versions:
-                    raise ESP32ToolchainError(
-                        f"No versions found for {self.toolchain_type}"
-                    )
-
-                # Use the first version (usually the recommended one)
-                version_info = versions[0]
-
-                # Detect current platform
-                current_platform = self.detect_platform()
-
-                # Get URL for current platform
-                if current_platform not in version_info:
-                    raise ESP32ToolchainError(
-                        f"Platform {current_platform} not supported for {self.toolchain_type}. "
-                        + f"Available platforms: {list(version_info.keys())}"
-                    )
-
-                platform_info = version_info[current_platform]
-                return platform_info["url"]
-
-        raise ESP32ToolchainError(
-            f"Toolchain {self.toolchain_type} not found in tools.json"
-        )
+        except MetadataParseError as e:
+            raise ESP32ToolchainError(str(e))
 
     def ensure_toolchain(self) -> Path:
         """Ensure toolchain is downloaded and extracted.
@@ -388,8 +319,7 @@ class ESP32Toolchain:
             return False
 
         # Verify essential toolchain binaries exist
-        gcc_path = self.get_gcc_path()
-        return gcc_path is not None and gcc_path.exists()
+        return self.binary_finder.verify_binary_exists("gcc")
 
     def get_bin_dir(self) -> Optional[Path]:
         """Get path to toolchain bin directory.
@@ -397,30 +327,7 @@ class ESP32Toolchain:
         Returns:
             Path to bin directory containing compiler binaries, or None if not found
         """
-        # The toolchain structure is: toolchain_path/bin/bin/
-        # (after extraction, the toolchain extracts to a subdirectory,
-        # and we copy it to toolchain_path/bin/)
-        bin_parent = self.toolchain_path.parent / "bin"
-
-        if not bin_parent.exists():
-            return None
-
-        # First check for bin/bin/ (most common after extraction)
-        bin_dir = bin_parent / "bin"
-        if bin_dir.exists() and bin_dir.is_dir():
-            # Verify it has binaries
-            binaries = list(bin_dir.glob("*.exe")) or list(bin_dir.glob("*-gcc"))
-            if binaries:
-                return bin_dir
-
-        # Look for nested toolchain directory (e.g., bin/riscv32-esp-elf/bin/)
-        for item in bin_parent.iterdir():
-            if item.is_dir() and "esp" in item.name.lower():
-                nested_bin = item / "bin"
-                if nested_bin.exists():
-                    return nested_bin
-
-        return None
+        return self.binary_finder.find_bin_dir()
 
     def _find_binary(self, binary_name: str) -> Optional[Path]:
         """Find a binary in the toolchain bin directory.
@@ -431,20 +338,7 @@ class ESP32Toolchain:
         Returns:
             Path to binary or None if not found
         """
-        bin_dir = self.get_bin_dir()
-        if bin_dir is None or not bin_dir.exists():
-            return None
-
-        # Try with .exe extension (Windows)
-        binary_with_prefix = f"{self.binary_prefix}-{binary_name}"
-
-        # Check both with and without .exe
-        for ext in [".exe", ""]:
-            binary_path = bin_dir / f"{binary_with_prefix}{ext}"
-            if binary_path.exists():
-                return binary_path
-
-        return None
+        return self.binary_finder.find_binary(binary_name)
 
     def get_gcc_path(self) -> Optional[Path]:
         """Get path to GCC compiler.
@@ -452,7 +346,7 @@ class ESP32Toolchain:
         Returns:
             Path to gcc binary or None if not found
         """
-        return self._find_binary("gcc")
+        return self.binary_finder.get_gcc_path()
 
     def get_gxx_path(self) -> Optional[Path]:
         """Get path to G++ compiler.
@@ -460,7 +354,7 @@ class ESP32Toolchain:
         Returns:
             Path to g++ binary or None if not found
         """
-        return self._find_binary("g++")
+        return self.binary_finder.get_gxx_path()
 
     def get_ar_path(self) -> Optional[Path]:
         """Get path to archiver (ar).
@@ -468,7 +362,7 @@ class ESP32Toolchain:
         Returns:
             Path to ar binary or None if not found
         """
-        return self._find_binary("ar")
+        return self.binary_finder.get_ar_path()
 
     def get_objcopy_path(self) -> Optional[Path]:
         """Get path to objcopy utility.
@@ -476,7 +370,7 @@ class ESP32Toolchain:
         Returns:
             Path to objcopy binary or None if not found
         """
-        return self._find_binary("objcopy")
+        return self.binary_finder.get_objcopy_path()
 
     def get_size_path(self) -> Optional[Path]:
         """Get path to size utility.
@@ -484,7 +378,7 @@ class ESP32Toolchain:
         Returns:
             Path to size binary or None if not found
         """
-        return self._find_binary("size")
+        return self.binary_finder.get_size_path()
 
     def get_objdump_path(self) -> Optional[Path]:
         """Get path to objdump utility.
@@ -492,7 +386,7 @@ class ESP32Toolchain:
         Returns:
             Path to objdump binary or None if not found
         """
-        return self._find_binary("objdump")
+        return self.binary_finder.get_objdump_path()
 
     def get_all_tool_paths(self) -> Dict[str, Optional[Path]]:
         """Get paths to all common toolchain binaries.
@@ -500,14 +394,7 @@ class ESP32Toolchain:
         Returns:
             Dictionary mapping tool names to their paths
         """
-        return {
-            "gcc": self.get_gcc_path(),
-            "g++": self.get_gxx_path(),
-            "ar": self.get_ar_path(),
-            "objcopy": self.get_objcopy_path(),
-            "size": self.get_size_path(),
-            "objdump": self.get_objdump_path(),
-        }
+        return self.binary_finder.get_common_tool_paths()
 
     def get_bin_path(self) -> Optional[Path]:
         """Get path to toolchain bin directory.
@@ -526,20 +413,10 @@ class ESP32Toolchain:
         Raises:
             ESP32ToolchainError: If essential binaries are missing
         """
-        required_tools = ["gcc", "g++", "ar", "objcopy"]
-        missing_tools = []
-
-        for tool in required_tools:
-            path = self._find_binary(tool)
-            if path is None or not path.exists():
-                missing_tools.append(tool)
-
-        if missing_tools:
-            raise ESP32ToolchainError(
-                f"Toolchain installation incomplete. Missing binaries: {', '.join(missing_tools)}"
-            )
-
-        return True
+        try:
+            return self.binary_finder.verify_installation()
+        except Exception as e:
+            raise ESP32ToolchainError(str(e))
 
     def get_toolchain_info(self) -> Dict[str, Any]:
         """Get information about the installed toolchain.
