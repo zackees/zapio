@@ -108,6 +108,14 @@ class BoardConfig:
             "core": "esp32",
             "variant": "esp32c6",
         },
+        "teensy40": {
+            "name": "Teensy 4.0",
+            "mcu": "imxrt1062",
+            "f_cpu": "600000000L",
+            "board": "TEENSY40",
+            "core": "teensy4",
+            "variant": "teensy40",
+        },
         "teensy41": {
             "name": "Teensy 4.1",
             "mcu": "imxrt1062",
