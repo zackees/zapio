@@ -14,9 +14,9 @@ import subprocess
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Union
 
-from ..packages.esp32_platform import PlatformESP32
-from ..packages.esp32_toolchain import ToolchainESP32
-from ..packages.esp32_framework import FrameworkESP32
+from ..packages.platform_esp32 import PlatformESP32
+from ..packages.toolchain_esp32 import ToolchainESP32
+from ..packages.framework_esp32 import FrameworkESP32
 from .binary_generator import BinaryGenerator
 from .compiler import ILinker, LinkerError
 

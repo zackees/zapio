@@ -14,7 +14,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from zapio.build.avr_orchestrator import (
+from zapio.build.orchestrator_avr import (
     BuildOrchestratorAVR,
     BuildOrchestratorError
 )

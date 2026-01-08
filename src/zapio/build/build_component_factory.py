@@ -12,7 +12,7 @@ from typing import List, Optional
 from ..config.board_config import BoardConfig
 from ..config.mcu_specs import get_max_flash, get_max_ram
 from ..packages.package import IToolchain
-from .avr_compiler import CompilerAVR
+from .compiler_avr import CompilerAVR
 from .linker import LinkerAVR
 
 

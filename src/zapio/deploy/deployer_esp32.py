@@ -117,8 +117,8 @@ class ESP32Deployer(IDeployer):
 
         # Import ESP32 packages
         from zapio.config import BoardConfig
-        from zapio.packages.esp32_framework import FrameworkESP32
-        from zapio.packages.esp32_platform import PlatformESP32
+        from zapio.packages.framework_esp32 import FrameworkESP32
+        from zapio.packages.platform_esp32 import PlatformESP32
 
         # Get board config to determine MCU type
         board_config = BoardConfig.from_board_id(board_id)

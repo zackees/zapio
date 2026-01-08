@@ -13,9 +13,9 @@ import json
 from pathlib import Path
 from typing import Any, List, Dict, Optional, Union
 
-from ..packages.esp32_platform import PlatformESP32
-from ..packages.esp32_toolchain import ToolchainESP32
-from ..packages.esp32_framework import FrameworkESP32
+from ..packages.platform_esp32 import PlatformESP32
+from ..packages.toolchain_esp32 import ToolchainESP32
+from ..packages.framework_esp32 import FrameworkESP32
 from .flag_builder import FlagBuilder
 from .compilation_executor import CompilationExecutor
 from .archive_creator import ArchiveCreator

@@ -23,7 +23,7 @@ from ..packages.library_manager import LibraryError
 from .source_scanner import SourceScanner, SourceCollection
 from .compiler import CompilerError as CompilerImportError
 from .linker import LinkerError as LinkerImportError
-from .esp32_orchestrator import OrchestratorESP32
+from .orchestrator_esp32 import OrchestratorESP32
 from .build_utils import SizeInfoPrinter
 from .library_dependency_processor import LibraryDependencyProcessor
 from .source_compilation_orchestrator import (

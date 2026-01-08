@@ -8,12 +8,12 @@ from .archive_utils import ArchiveExtractionError, ArchiveExtractor, URLVersionE
 from .arduino_core import ArduinoCore, ArduinoCoreError
 from .cache import Cache
 from .downloader import ChecksumError, DownloadError, ExtractionError, PackageDownloader
-from .esp32_platform import PlatformErrorESP32, PlatformESP32
 from .github_utils import GitHubURLOptimizer
 from .library_compiler import LibraryCompilationError, LibraryCompiler
 from .package import IFramework, IPackage
 from .package import IToolchain as BaseToolchain
 from .package import PackageError
+from .platform_esp32 import PlatformErrorESP32, PlatformESP32
 from .platform_utils import PlatformDetector, PlatformError
 from .sdk_utils import SDKPathResolver
 from .toolchain import ToolchainAVR as Toolchain

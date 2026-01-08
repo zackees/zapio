@@ -8,8 +8,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from zapio.packages.cache import Cache
-from zapio.packages.esp32_platform import ESP32Platform
-from zapio.packages.esp32_toolchain import ESP32Toolchain
+from zapio.packages.platform_esp32 import ESP32Platform
+from zapio.packages.toolchain_esp32 import ESP32Toolchain
 
 def test_toolchain():
     """Test ESP32-C6 toolchain download and verification."""

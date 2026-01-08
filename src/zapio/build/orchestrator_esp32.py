@@ -11,10 +11,10 @@ from typing import List, Optional
 from dataclasses import dataclass
 
 from ..packages import Cache
-from ..packages.esp32_platform import PlatformESP32
-from ..packages.esp32_toolchain import ToolchainESP32
-from ..packages.esp32_framework import FrameworkESP32
-from ..packages.esp32_library_manager import LibraryManagerESP32
+from ..packages.platform_esp32 import PlatformESP32
+from ..packages.toolchain_esp32 import ToolchainESP32
+from ..packages.framework_esp32 import FrameworkESP32
+from ..packages.library_manager_esp32 import LibraryManagerESP32
 from .configurable_compiler import ConfigurableCompiler
 from .configurable_linker import ConfigurableLinker
 from .linker import SizeInfo

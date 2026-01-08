@@ -9,8 +9,8 @@ This script tests the ESP32Framework class by:
 """
 
 from src.zapio.packages.cache import Cache
-from src.zapio.packages.esp32_platform import ESP32Platform
-from src.zapio.packages.esp32_framework import ESP32Framework
+from src.zapio.packages.platform_esp32 import ESP32Platform
+from src.zapio.packages.framework_esp32 import ESP32Framework
 
 
 def test_framework():

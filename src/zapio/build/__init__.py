@@ -34,7 +34,7 @@ except ImportError:
 
 # Import platform-specific implementations
 try:
-    from .avr_compiler import CompilerAVR  # noqa: F401
+    from .compiler_avr import CompilerAVR  # noqa: F401
     __all__.append('CompilerAVR')
 except ImportError:
     pass
@@ -46,13 +46,13 @@ except ImportError:
     pass
 
 try:
-    from .avr_orchestrator import BuildOrchestratorAVR  # noqa: F401
+    from .orchestrator_avr import BuildOrchestratorAVR  # noqa: F401
     __all__.append('BuildOrchestratorAVR')
 except ImportError:
     pass
 
 try:
-    from .esp32_orchestrator import OrchestratorESP32  # noqa: F401
+    from .orchestrator_esp32 import OrchestratorESP32  # noqa: F401
     __all__.append('OrchestratorESP32')
 except ImportError:
     pass
