@@ -137,17 +137,21 @@ class PlatformTeensy(IPackage):
 
         # Replace C standard with C++ standard
         flags = [f for f in flags if not f.startswith("-std=gnu11")]
-        flags.extend([
-            "-std=gnu++14",
-            "-fno-exceptions",
-            "-fno-rtti",
-            "-felide-constructors",
-            "-fno-threadsafe-statics",
-        ])
+        flags.extend(
+            [
+                "-std=gnu++14",
+                "-fno-exceptions",
+                "-fno-rtti",
+                "-felide-constructors",
+                "-fno-threadsafe-statics",
+            ]
+        )
 
         return flags
 
-    def get_linker_flags(self, board_config: Any, board_id: str = "teensy41") -> List[str]:
+    def get_linker_flags(
+        self, board_config: Any, board_id: str = "teensy41"
+    ) -> List[str]:
         """Get linker flags for Teensy builds.
 
         Args:
@@ -291,7 +295,7 @@ class PlatformTeensy(IPackage):
         if board_id not in board_configs:
             raise PlatformErrorTeensy(
                 f"Unsupported board: {board_id}. "
-                f"Supported boards: {', '.join(board_configs.keys())}"
+                + f"Supported boards: {', '.join(board_configs.keys())}"
             )
 
         return board_configs[board_id]

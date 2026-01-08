@@ -13,9 +13,7 @@ import json
 from pathlib import Path
 from typing import Any, List, Dict, Optional, Union
 
-from ..packages.platform_esp32 import PlatformESP32
-from ..packages.toolchain_esp32 import ToolchainESP32
-from ..packages.framework_esp32 import FrameworkESP32
+from ..packages.package import IPackage, IToolchain, IFramework
 from .flag_builder import FlagBuilder
 from .compilation_executor import CompilationExecutor
 from .archive_creator import ArchiveCreator
@@ -39,9 +37,9 @@ class ConfigurableCompiler(ICompiler):
 
     def __init__(
         self,
-        platform: PlatformESP32,
-        toolchain: ToolchainESP32,
-        framework: FrameworkESP32,
+        platform: IPackage,
+        toolchain: IToolchain,
+        framework: IFramework,
         board_id: str,
         build_dir: Path,
         platform_config: Optional[Union[Dict, Path]] = None,
@@ -69,7 +67,7 @@ class ConfigurableCompiler(ICompiler):
         self.user_build_flags = user_build_flags or []
 
         # Load board configuration
-        self.board_config = platform.get_board_json(board_id)
+        self.board_config = platform.get_board_json(board_id)  # type: ignore[attr-defined]
 
         # Get MCU type from board config
         self.mcu = self.board_config.get("build", {}).get("mcu", "").lower()
@@ -136,12 +134,12 @@ class ConfigurableCompiler(ICompiler):
         includes = []
 
         # Core include path
-        core_dir = self.framework.get_core_dir(self.core)
+        core_dir = self.framework.get_core_dir(self.core)  # type: ignore[attr-defined]
         includes.append(core_dir)
 
         # Variant include path
         try:
-            variant_dir = self.framework.get_variant_dir(self.variant)
+            variant_dir = self.framework.get_variant_dir(self.variant)  # type: ignore[attr-defined]
             includes.append(variant_dir)
         except KeyboardInterrupt as ke:
             from zapio.interrupt_utils import handle_keyboard_interrupt_properly
@@ -152,13 +150,13 @@ class ConfigurableCompiler(ICompiler):
 
         # SDK include paths (ESP32-specific)
         if hasattr(self.framework, 'get_sdk_includes'):
-            sdk_includes = self.framework.get_sdk_includes(self.mcu)
+            sdk_includes = self.framework.get_sdk_includes(self.mcu)  # type: ignore[attr-defined]
             includes.extend(sdk_includes)
 
         # Add flash mode specific sdkconfig.h path (ESP32-specific)
         if hasattr(self.framework, 'get_sdk_dir'):
             flash_mode = self.board_config.get("build", {}).get("flash_mode", "qio")
-            sdk_dir = self.framework.get_sdk_dir()
+            sdk_dir = self.framework.get_sdk_dir()  # type: ignore[attr-defined]
             flash_config_dir = sdk_dir / self.mcu / f"{flash_mode}_qspi" / "include"
             if flash_config_dir.exists():
                 includes.append(flash_config_dir)
@@ -281,7 +279,7 @@ class ConfigurableCompiler(ICompiler):
         object_files = []
 
         # Get core sources
-        core_sources = self.framework.get_core_sources(self.core)
+        core_sources = self.framework.get_core_sources(self.core)  # type: ignore[attr-defined]
 
         if self.show_progress:
             print(f"Compiling {len(core_sources)} core source files...")
@@ -345,7 +343,7 @@ class ConfigurableCompiler(ICompiler):
             'mcu': self.mcu,
             'variant': self.variant,
             'build_dir': str(self.build_dir),
-            'toolchain_type': self.toolchain.toolchain_type,
+            'toolchain_type': self.toolchain.toolchain_type,  # type: ignore[attr-defined]
             'gcc_path': str(self.toolchain.get_gcc_path()),
             'gxx_path': str(self.toolchain.get_gxx_path()),
         }

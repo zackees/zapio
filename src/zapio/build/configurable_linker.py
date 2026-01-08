@@ -14,9 +14,7 @@ import subprocess
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Union
 
-from ..packages.platform_esp32 import PlatformESP32
-from ..packages.toolchain_esp32 import ToolchainESP32
-from ..packages.framework_esp32 import FrameworkESP32
+from ..packages.package import IPackage, IToolchain, IFramework
 from .binary_generator import BinaryGenerator
 from .compiler import ILinker, LinkerError
 
@@ -39,9 +37,9 @@ class ConfigurableLinker(ILinker):
 
     def __init__(
         self,
-        platform: PlatformESP32,
-        toolchain: ToolchainESP32,
-        framework: FrameworkESP32,
+        platform: IPackage,
+        toolchain: IToolchain,
+        framework: IFramework,
         board_id: str,
         build_dir: Path,
         platform_config: Optional[Union[Dict, Path]] = None,
@@ -66,7 +64,7 @@ class ConfigurableLinker(ILinker):
         self.show_progress = show_progress
 
         # Load board configuration
-        self.board_config = platform.get_board_json(board_id)
+        self.board_config = platform.get_board_json(board_id)  # type: ignore[attr-defined]
 
         # Get MCU type from board config
         self.mcu = self.board_config.get("build", {}).get("mcu", "").lower()
@@ -117,14 +115,14 @@ class ConfigurableLinker(ILinker):
 
         # Check if framework has a get_linker_script method (Teensy-style)
         if hasattr(self.framework, 'get_linker_script'):
-            linker_script = self.framework.get_linker_script(self.board_id)
+            linker_script = self.framework.get_linker_script(self.board_id)  # type: ignore[attr-defined]
             if linker_script and linker_script.exists():
                 scripts.append(linker_script)
 
         # Otherwise use ESP32-style SDK directory approach
         elif hasattr(self.framework, 'get_sdk_dir'):
             # Get linker script directory
-            sdk_ld_dir = self.framework.get_sdk_dir() / self.mcu / "ld"
+            sdk_ld_dir = self.framework.get_sdk_dir() / self.mcu / "ld"  # type: ignore[attr-defined]
 
             if not sdk_ld_dir.exists():
                 raise ConfigurableLinkerError(f"Linker script directory not found: {sdk_ld_dir}")
@@ -168,12 +166,12 @@ class ConfigurableLinker(ILinker):
             flash_mode = self.board_config.get("build", {}).get("flash_mode", "qio")
 
             # Get SDK libraries
-            self._sdk_libs_cache = self.framework.get_sdk_libs(self.mcu, flash_mode)
+            self._sdk_libs_cache = self.framework.get_sdk_libs(self.mcu, flash_mode)  # type: ignore[attr-defined]
         else:
             # No SDK libraries for this framework (e.g., Teensy)
             self._sdk_libs_cache = []
 
-        return self._sdk_libs_cache
+        return self._sdk_libs_cache or []
 
     def get_linker_flags(self) -> List[str]:
         """Get linker flags from configuration.
@@ -253,14 +251,14 @@ class ConfigurableLinker(ILinker):
 
         # Add linker script directory to library search path (ESP32-specific)
         if hasattr(self.framework, 'get_sdk_dir'):
-            ld_dir = self.framework.get_sdk_dir() / self.mcu / "ld"
+            ld_dir = self.framework.get_sdk_dir() / self.mcu / "ld"  # type: ignore[attr-defined]
             cmd.append(f"-L{ld_dir}")
 
             # For ESP32-S3, also add flash mode directory to search path
             if self.mcu == "esp32s3":
                 flash_mode = self.board_config.get("build", {}).get("flash_mode", "qio")
                 psram_mode = self.board_config.get("build", {}).get("psram_mode", "qspi")
-                flash_dir = self.framework.get_sdk_dir() / self.mcu / f"{flash_mode}_{psram_mode}"
+                flash_dir = self.framework.get_sdk_dir() / self.mcu / f"{flash_mode}_{psram_mode}"  # type: ignore[attr-defined]
                 if flash_dir.exists():
                     cmd.append(f"-L{flash_dir}")
 
@@ -283,7 +281,7 @@ class ConfigurableLinker(ILinker):
 
         # Add SDK library directory to search path (ESP32-specific)
         if hasattr(self.framework, 'get_sdk_dir'):
-            sdk_lib_dir = self.framework.get_sdk_dir() / self.mcu / "lib"
+            sdk_lib_dir = self.framework.get_sdk_dir() / self.mcu / "lib"  # type: ignore[attr-defined]
             if sdk_lib_dir.exists():
                 cmd.append(f"-L{sdk_lib_dir}")
 
@@ -466,12 +464,15 @@ class ConfigurableLinker(ILinker):
             size_tool = self.toolchain.get_size_path()
         else:
             # Fall back to looking for size tool in toolchain bin directory
-            toolchain_bin = self.toolchain.get_gcc_path().parent
+            gcc_path = self.toolchain.get_gcc_path()
+            if gcc_path is None:
+                return None
+            toolchain_bin = gcc_path.parent
             size_tool = toolchain_bin / "arm-none-eabi-size"
             if not size_tool.exists():
                 size_tool = toolchain_bin / "arm-none-eabi-size.exe"
 
-        if not size_tool.exists():
+        if size_tool and not size_tool.exists():
             # If we can't find the size tool, return None (non-fatal)
             return None
 
@@ -496,6 +497,10 @@ class ConfigurableLinker(ILinker):
             else:
                 return None
 
+        except KeyboardInterrupt as ke:
+            from zapio.interrupt_utils import handle_keyboard_interrupt_properly
+            handle_keyboard_interrupt_properly(ke)
+            raise  # Never reached, but satisfies type checker
         except Exception:
             return None
 
@@ -551,7 +556,7 @@ class ConfigurableLinker(ILinker):
             'board_id': self.board_id,
             'mcu': self.mcu,
             'build_dir': str(self.build_dir),
-            'toolchain_type': self.toolchain.toolchain_type,
+            'toolchain_type': self.toolchain.toolchain_type,  # type: ignore[attr-defined]
             'linker_path': str(self.toolchain.get_gxx_path()),
             'objcopy_path': str(self.toolchain.get_objcopy_path()),
         }

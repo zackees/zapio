@@ -53,7 +53,9 @@ class FrameworkTeensy(IFramework):
 
     # Teensy cores repository URL
     CORES_REPO_URL = "https://github.com/PaulStoffregen/cores"
-    CORES_ARCHIVE_URL = "https://github.com/PaulStoffregen/cores/archive/refs/heads/master.zip"
+    CORES_ARCHIVE_URL = (
+        "https://github.com/PaulStoffregen/cores/archive/refs/heads/master.zip"
+    )
 
     def __init__(
         self,
@@ -304,7 +306,9 @@ class FrameworkTeensy(IFramework):
             FrameworkErrorTeensy: If cores directory doesn't exist
         """
         if not self.framework_path.exists():
-            raise FrameworkErrorTeensy(f"Framework not installed at {self.framework_path}")
+            raise FrameworkErrorTeensy(
+                f"Framework not installed at {self.framework_path}"
+            )
         return self.framework_path
 
     def get_variants_dir(self) -> Path:
@@ -317,7 +321,9 @@ class FrameworkTeensy(IFramework):
             Path to framework directory (variants are in core dirs)
         """
         if not self.framework_path.exists():
-            raise FrameworkErrorTeensy(f"Framework not installed at {self.framework_path}")
+            raise FrameworkErrorTeensy(
+                f"Framework not installed at {self.framework_path}"
+            )
         return self.framework_path
 
     def get_libraries_dir(self) -> Path:
@@ -330,7 +336,9 @@ class FrameworkTeensy(IFramework):
             Path to framework directory (libraries location)
         """
         if not self.framework_path.exists():
-            raise FrameworkErrorTeensy(f"Framework not installed at {self.framework_path}")
+            raise FrameworkErrorTeensy(
+                f"Framework not installed at {self.framework_path}"
+            )
         return self.framework_path
 
     # Implement IPackage interface

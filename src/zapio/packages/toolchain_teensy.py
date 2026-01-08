@@ -80,9 +80,7 @@ class ToolchainTeensy(IToolchain):
         self.version = self._extract_version_from_url(self.toolchain_url)
 
         # Get toolchain path from cache
-        self.toolchain_path = cache.get_toolchain_path(
-            self.toolchain_url, self.version
-        )
+        self.toolchain_path = cache.get_toolchain_path(self.toolchain_url, self.version)
 
     @staticmethod
     def _get_platform_toolchain_url() -> str:
@@ -98,7 +96,7 @@ class ToolchainTeensy(IToolchain):
         if system not in ToolchainTeensy.TOOLCHAIN_URLS:
             raise ToolchainErrorTeensy(
                 f"Unsupported platform: {system}. "
-                f"Supported platforms: {', '.join(ToolchainTeensy.TOOLCHAIN_URLS.keys())}"
+                + f"Supported platforms: {', '.join(ToolchainTeensy.TOOLCHAIN_URLS.keys())}"
             )
         return ToolchainTeensy.TOOLCHAIN_URLS[system]
 
@@ -368,7 +366,9 @@ class ToolchainTeensy(IToolchain):
         result = {}
         for name, path in all_tools.items():
             if path is None:
-                raise ToolchainErrorTeensy(f"Required tool '{name}' not found in toolchain")
+                raise ToolchainErrorTeensy(
+                    f"Required tool '{name}' not found in toolchain"
+                )
             result[name] = path
 
         return result
