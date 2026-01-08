@@ -7,7 +7,7 @@ Tests the AVR linker wrapper functionality.
 import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
-from zapio.build.linker import Linker, LinkResult, SizeInfo, LinkerError
+from zapio.build.linker import LinkerAVR, LinkResult, SizeInfo, LinkerError
 
 
 class TestSizeInfo:
@@ -144,7 +144,7 @@ class TestLinker:
     @pytest.fixture
     def linker(self, mock_tools):
         """Create Linker instance."""
-        return Linker(
+        return LinkerAVR(
             avr_gcc=mock_tools['gcc'],
             avr_ar=mock_tools['ar'],
             avr_objcopy=mock_tools['objcopy'],
@@ -156,7 +156,7 @@ class TestLinker:
 
     def test_init_success(self, mock_tools):
         """Test successful linker initialization."""
-        linker = Linker(
+        linker = LinkerAVR(
             avr_gcc=mock_tools['gcc'],
             avr_ar=mock_tools['ar'],
             avr_objcopy=mock_tools['objcopy'],
@@ -179,7 +179,7 @@ class TestLinker:
         fake_gcc = tmp_path / 'nonexistent' / 'avr-gcc'
 
         with pytest.raises(LinkerError, match='avr-gcc not found'):
-            Linker(
+            LinkerAVR(
                 avr_gcc=fake_gcc,
                 avr_ar=mock_tools['ar'],
                 avr_objcopy=mock_tools['objcopy'],
@@ -192,7 +192,7 @@ class TestLinker:
         fake_ar = tmp_path / 'nonexistent' / 'avr-ar'
 
         with pytest.raises(LinkerError, match='avr-ar not found'):
-            Linker(
+            LinkerAVR(
                 avr_gcc=mock_tools['gcc'],
                 avr_ar=fake_ar,
                 avr_objcopy=mock_tools['objcopy'],
@@ -205,7 +205,7 @@ class TestLinker:
         fake_objcopy = tmp_path / 'nonexistent' / 'avr-objcopy'
 
         with pytest.raises(LinkerError, match='avr-objcopy not found'):
-            Linker(
+            LinkerAVR(
                 avr_gcc=mock_tools['gcc'],
                 avr_ar=mock_tools['ar'],
                 avr_objcopy=fake_objcopy,
@@ -218,7 +218,7 @@ class TestLinker:
         fake_size = tmp_path / 'nonexistent' / 'avr-size'
 
         with pytest.raises(LinkerError, match='avr-size not found'):
-            Linker(
+            LinkerAVR(
                 avr_gcc=mock_tools['gcc'],
                 avr_ar=mock_tools['ar'],
                 avr_objcopy=mock_tools['objcopy'],

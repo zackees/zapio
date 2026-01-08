@@ -14,8 +14,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from zapio.build.orchestrator import (
-    BuildOrchestrator,
+from zapio.build.avr_orchestrator import (
+    BuildOrchestratorAVR,
     BuildOrchestratorError
 )
 from zapio.config import BoardConfig
@@ -148,20 +148,20 @@ class TestBuildOrchestratorInit:
 
     def test_init_default(self):
         """Test initialization with defaults."""
-        orchestrator = BuildOrchestrator()
+        orchestrator = BuildOrchestratorAVR()
 
         assert orchestrator.cache is None
         assert orchestrator.verbose is False
 
     def test_init_with_cache(self, mock_cache):
         """Test initialization with cache."""
-        orchestrator = BuildOrchestrator(cache=mock_cache)
+        orchestrator = BuildOrchestratorAVR(cache=mock_cache)
 
         assert orchestrator.cache == mock_cache
 
     def test_init_verbose(self):
         """Test initialization with verbose mode."""
-        orchestrator = BuildOrchestrator(verbose=True)
+        orchestrator = BuildOrchestratorAVR(verbose=True)
 
         assert orchestrator.verbose is True
 
@@ -181,7 +181,7 @@ framework = arduino
         ini_path = tmp_path / 'platformio.ini'
         ini_path.write_text(ini_content)
 
-        orchestrator = BuildOrchestrator()
+        orchestrator = BuildOrchestratorAVR()
         config = orchestrator._parse_config(tmp_path)
 
         assert config is not None
@@ -189,7 +189,7 @@ framework = arduino
 
     def test_parse_config_not_found(self, tmp_path):
         """Test error when platformio.ini not found."""
-        orchestrator = BuildOrchestrator()
+        orchestrator = BuildOrchestratorAVR()
 
         with pytest.raises(BuildOrchestratorError) as exc_info:
             orchestrator._parse_config(tmp_path)
@@ -202,7 +202,7 @@ framework = arduino
         ini_path = tmp_path / 'platformio.ini'
         ini_path.write_text('[invalid syntax')
 
-        orchestrator = BuildOrchestrator()
+        orchestrator = BuildOrchestratorAVR()
 
         with pytest.raises(BuildOrchestratorError) as exc_info:
             orchestrator._parse_config(tmp_path)
@@ -216,7 +216,7 @@ class TestLoadBoardConfig:
 
     def test_load_board_config_uno(self):
         """Test loading Uno board config."""
-        orchestrator = BuildOrchestrator()
+        orchestrator = BuildOrchestratorAVR()
         env_config = {
             'platform': 'atmelavr',
             'board': 'uno',
@@ -231,7 +231,7 @@ class TestLoadBoardConfig:
 
     def test_load_board_config_with_overrides(self):
         """Test loading board config with overrides."""
-        orchestrator = BuildOrchestrator()
+        orchestrator = BuildOrchestratorAVR()
         env_config = {
             'platform': 'atmelavr',
             'board': 'uno',
@@ -246,7 +246,7 @@ class TestLoadBoardConfig:
 
     def test_load_board_config_unknown(self):
         """Test error with unknown board."""
-        orchestrator = BuildOrchestrator()
+        orchestrator = BuildOrchestratorAVR()
         env_config = {
             'platform': 'atmelavr',
             'board': 'unknown_board',
@@ -269,7 +269,7 @@ class TestEnsureToolchain:
         mock_toolchain.ensure_toolchain = Mock(return_value=Path('/toolchain'))
         mock_toolchain_class.return_value = mock_toolchain
 
-        orchestrator = BuildOrchestrator(cache=mock_cache)
+        orchestrator = BuildOrchestratorAVR(cache=mock_cache)
         toolchain = orchestrator._ensure_toolchain()
 
         assert toolchain == mock_toolchain
@@ -282,7 +282,7 @@ class TestEnsureToolchain:
         mock_toolchain.ensure_toolchain = Mock(side_effect=Exception('Download failed'))
         mock_toolchain_class.return_value = mock_toolchain
 
-        orchestrator = BuildOrchestrator(cache=mock_cache)
+        orchestrator = BuildOrchestratorAVR(cache=mock_cache)
 
         with pytest.raises(BuildOrchestratorError) as exc_info:
             orchestrator._ensure_toolchain()
@@ -302,7 +302,7 @@ class TestEnsureArduinoCore:
         mock_core.ensure_avr_core = Mock(return_value=Path('/arduino/avr'))
         mock_core_class.return_value = mock_core
 
-        orchestrator = BuildOrchestrator(cache=mock_cache)
+        orchestrator = BuildOrchestratorAVR(cache=mock_cache)
         core = orchestrator._ensure_arduino_core()
 
         assert core == mock_core
@@ -315,7 +315,7 @@ class TestEnsureArduinoCore:
         mock_core.ensure_avr_core = Mock(side_effect=Exception('Download failed'))
         mock_core_class.return_value = mock_core
 
-        orchestrator = BuildOrchestrator(cache=mock_cache)
+        orchestrator = BuildOrchestratorAVR(cache=mock_cache)
 
         with pytest.raises(BuildOrchestratorError) as exc_info:
             orchestrator._ensure_arduino_core()
@@ -339,7 +339,7 @@ class TestScanSources:
         mock_scanner.scan = Mock(return_value=mock_collection)
         mock_scanner_class.return_value = mock_scanner
 
-        orchestrator = BuildOrchestrator()
+        orchestrator = BuildOrchestratorAVR()
         core_path = Path('/arduino/avr')
 
         sources = orchestrator._scan_sources(
@@ -360,7 +360,7 @@ class TestCreateCompiler:
 
     def test_create_compiler(self, mock_toolchain, mock_board_config):
         """Test compiler creation with correct parameters."""
-        orchestrator = BuildOrchestrator()
+        orchestrator = BuildOrchestratorAVR()
         core_path = Path('/arduino/avr')
 
         with patch('zapio.build.orchestrator.Compiler') as mock_compiler_class:
@@ -387,7 +387,7 @@ class TestCreateLinker:
 
     def test_create_linker(self, mock_toolchain, mock_board_config):
         """Test linker creation with correct parameters."""
-        orchestrator = BuildOrchestrator()
+        orchestrator = BuildOrchestratorAVR()
 
         with patch('zapio.build.orchestrator.Linker') as mock_linker_class:
             mock_linker = Mock()
@@ -413,7 +413,7 @@ class TestCompileSources:
 
     def test_compile_sources_success(self, tmp_path, mock_compiler):
         """Test successful source compilation."""
-        orchestrator = BuildOrchestrator()
+        orchestrator = BuildOrchestratorAVR()
         sources = [Path('src/main.cpp'), Path('src/helper.cpp')]
         output_dir = tmp_path / 'build'
 
@@ -433,7 +433,7 @@ class TestCompileSources:
         # Mock needs_rebuild to return False (cached)
         mock_compiler.needs_rebuild = Mock(return_value=False)
 
-        orchestrator = BuildOrchestrator()
+        orchestrator = BuildOrchestratorAVR()
         sources = [Path('src/main.cpp')]
         output_dir = tmp_path / 'build'
 
@@ -457,7 +457,7 @@ class TestCompileSources:
         result.stderr = 'Compilation error'
         mock_compiler.compile = Mock(return_value=result)
 
-        orchestrator = BuildOrchestrator()
+        orchestrator = BuildOrchestratorAVR()
         sources = [Path('src/main.cpp')]
         output_dir = tmp_path / 'build'
 
@@ -578,21 +578,22 @@ framework = arduino
         ini_path.write_text(ini_content)
 
         # Run build
-        orchestrator = BuildOrchestrator()
+        orchestrator = BuildOrchestratorAVR()
         result = orchestrator.build(tmp_path, env_name='uno', verbose=False)
 
         # Verify result
         assert result.success is True
         assert result.hex_path is not None
         assert result.size_info is not None
-        assert result.size_info.total_flash == 1050
+        size_info = result.size_info  # Type narrowing for pyright
+        assert size_info.total_flash == 1050
 
     @patch('zapio.build.orchestrator.PlatformIOConfig')
     def test_build_no_platformio_ini(self, mock_config_class, tmp_path):
         """Test build with missing platformio.ini."""
         mock_config_class.side_effect = Exception('File not found')
 
-        orchestrator = BuildOrchestrator()
+        orchestrator = BuildOrchestratorAVR()
         result = orchestrator.build(tmp_path)
 
         assert result.success is False
@@ -609,7 +610,7 @@ framework = arduino
         ini_path = tmp_path / 'platformio.ini'
         ini_path.write_text('[env:uno]\nboard=uno')
 
-        orchestrator = BuildOrchestrator()
+        orchestrator = BuildOrchestratorAVR()
         result = orchestrator.build(tmp_path)
 
         assert result.success is False
@@ -634,7 +635,7 @@ class TestPrintSizeInfo:
             max_ram=2048
         )
 
-        orchestrator = BuildOrchestrator()
+        orchestrator = BuildOrchestratorAVR()
         orchestrator._print_size_info(size_info)  # type: ignore[attr-defined]
 
         captured = capsys.readouterr()
@@ -644,7 +645,7 @@ class TestPrintSizeInfo:
 
     def test_print_size_info_none(self, capsys):
         """Test size info with None."""
-        orchestrator = BuildOrchestrator()
+        orchestrator = BuildOrchestratorAVR()
         orchestrator._print_size_info(None)  # type: ignore[attr-defined]
 
         captured = capsys.readouterr()

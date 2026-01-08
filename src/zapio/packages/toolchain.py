@@ -6,20 +6,21 @@ toolchain required for building Arduino sketches.
 
 import sys
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from .cache import Cache
 from .downloader import PackageDownloader
+from .package import PackageError, Toolchain
 from .platform_utils import PlatformDetector, PlatformError
 
 
-class ToolchainError(Exception):
+class ToolchainError(PackageError):
     """Raised when toolchain operations fail."""
 
     pass
 
 
-class Toolchain:
+class ToolchainAVR(Toolchain):
     """Manages AVR-GCC toolchain."""
 
     # AVR-GCC version used by Arduino
@@ -110,7 +111,7 @@ class Toolchain:
         except PlatformError as e:
             raise ToolchainError(str(e))
 
-    def get_package_info(self) -> tuple[str, Optional[str]]:
+    def _get_package_details(self) -> tuple[str, Optional[str]]:
         """Get package filename and checksum for current platform.
 
         Returns:
@@ -164,7 +165,7 @@ class Toolchain:
             return self._toolchain_path
 
         # Get package info
-        package_name, checksum = self.get_package_info()
+        package_name, checksum = self._get_package_details()
 
         # Use URL and version for cache path
         url = f"{self.BASE_URL}/{package_name}"
@@ -330,3 +331,121 @@ class Toolchain:
             )
 
         return {tool: self.get_tool_path(tool) for tool in self.REQUIRED_TOOLS}
+
+    # Implement BaseToolchain interface
+    def get_gcc_path(self) -> Optional[Path]:
+        """Get path to GCC compiler.
+
+        Returns:
+            Path to gcc binary or None if not found
+        """
+        try:
+            return self.get_tool_path("avr-gcc")
+        except ToolchainError:
+            return None
+
+    def get_gxx_path(self) -> Optional[Path]:
+        """Get path to G++ compiler.
+
+        Returns:
+            Path to g++ binary or None if not found
+        """
+        try:
+            return self.get_tool_path("avr-g++")
+        except ToolchainError:
+            return None
+
+    def get_ar_path(self) -> Optional[Path]:
+        """Get path to archiver (ar).
+
+        Returns:
+            Path to ar binary or None if not found
+        """
+        try:
+            return self.get_tool_path("avr-ar")
+        except ToolchainError:
+            return None
+
+    def get_objcopy_path(self) -> Optional[Path]:
+        """Get path to objcopy utility.
+
+        Returns:
+            Path to objcopy binary or None if not found
+        """
+        try:
+            return self.get_tool_path("avr-objcopy")
+        except ToolchainError:
+            return None
+
+    def get_size_path(self) -> Optional[Path]:
+        """Get path to size utility.
+
+        Returns:
+            Path to size binary or None if not found
+        """
+        try:
+            return self.get_tool_path("avr-size")
+        except ToolchainError:
+            return None
+
+    def get_bin_dir(self) -> Optional[Path]:
+        """Get path to toolchain bin directory.
+
+        Returns:
+            Path to bin directory containing compiler binaries
+        """
+        if not self._toolchain_path:
+            return None
+        return self._toolchain_path / "bin"
+
+    def is_installed(self) -> bool:
+        """Check if toolchain is already installed.
+
+        Returns:
+            True if toolchain directory exists and is valid
+        """
+        if not self._toolchain_path:
+            # Try to get from cache
+            toolchain_path = self.cache.get_toolchain_path(self.BASE_URL, self.VERSION)
+            if not toolchain_path.exists():
+                return False
+            # Verify it
+            if self._verify_toolchain(toolchain_path):
+                self._toolchain_path = toolchain_path
+                return True
+            return False
+        return self._verify_toolchain(self._toolchain_path)
+
+    # Implement BasePackage interface
+    def ensure_package(self) -> Path:
+        """Ensure package is downloaded and extracted.
+
+        Returns:
+            Path to the extracted package directory
+
+        Raises:
+            PackageError: If download or extraction fails
+        """
+        return self.ensure_toolchain()
+
+    def get_package_info(self) -> Dict[str, Any]:
+        """Get information about the package.
+
+        Returns:
+            Dictionary with package metadata (version, path, etc.)
+        """
+        info = {
+            "type": "toolchain",
+            "platform": "avr",
+            "version": self.VERSION,
+            "base_url": self.BASE_URL,
+            "installed": self._toolchain_path is not None,
+        }
+
+        if self._toolchain_path:
+            info["path"] = str(self._toolchain_path)
+            info["tools"] = {
+                name: str(path) for name, path in self.get_all_tools().items()
+            }
+
+        return info

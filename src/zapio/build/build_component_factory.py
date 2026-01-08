@@ -11,9 +11,9 @@ from typing import List, Optional
 
 from ..config.board_config import BoardConfig
 from ..config.mcu_specs import get_max_flash, get_max_ram
-from ..packages.toolchain import Toolchain
-from .compiler import Compiler
-from .linker import Linker
+from ..packages.package import Toolchain
+from .avr_compiler import CompilerAVR
+from .linker import LinkerAVR
 
 
 class BuildComponentFactory:
@@ -43,7 +43,7 @@ class BuildComponentFactory:
         board_config: BoardConfig,
         core_path: Path,
         lib_include_paths: Optional[List[Path]] = None
-    ) -> Compiler:
+    ) -> CompilerAVR:
         """
         Create compiler instance with appropriate settings.
 
@@ -76,7 +76,7 @@ class BuildComponentFactory:
         defines = board_config.get_defines()
 
         # Create and return compiler
-        return Compiler(
+        return CompilerAVR(
             avr_gcc=tools['avr-gcc'],
             avr_gpp=tools['avr-g++'],
             mcu=board_config.mcu,
@@ -89,7 +89,7 @@ class BuildComponentFactory:
     def create_linker(
         toolchain: Toolchain,
         board_config: BoardConfig
-    ) -> Linker:
+    ) -> LinkerAVR:
         """
         Create linker instance with appropriate settings.
 
@@ -113,7 +113,7 @@ class BuildComponentFactory:
         max_ram = get_max_ram(board_config.mcu)
 
         # Create and return linker
-        return Linker(
+        return LinkerAVR(
             avr_gcc=tools['avr-gcc'],
             avr_ar=tools['avr-ar'],
             avr_objcopy=tools['avr-objcopy'],

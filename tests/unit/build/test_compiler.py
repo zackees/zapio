@@ -7,7 +7,7 @@ Tests the AVR-GCC compiler wrapper functionality.
 import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
-from zapio.build.compiler import Compiler, CompileResult, CompilerError
+from zapio.build.avr_compiler import CompilerAVR, CompileResult, CompilerError
 
 
 class TestCompiler:
@@ -50,7 +50,7 @@ class TestCompiler:
     @pytest.fixture
     def compiler(self, mock_gcc, mock_gpp, includes, defines):
         """Create Compiler instance."""
-        return Compiler(
+        return CompilerAVR(
             avr_gcc=mock_gcc,
             avr_gpp=mock_gpp,
             mcu='atmega328p',
@@ -61,7 +61,7 @@ class TestCompiler:
 
     def test_init_success(self, mock_gcc, mock_gpp, includes, defines):
         """Test successful compiler initialization."""
-        compiler = Compiler(
+        compiler = CompilerAVR(
             avr_gcc=mock_gcc,
             avr_gpp=mock_gpp,
             mcu='atmega328p',
@@ -82,7 +82,7 @@ class TestCompiler:
         fake_gcc = tmp_path / 'nonexistent' / 'avr-gcc'
 
         with pytest.raises(CompilerError, match='avr-gcc not found'):
-            Compiler(
+            CompilerAVR(
                 avr_gcc=fake_gcc,
                 avr_gpp=mock_gpp,
                 mcu='atmega328p',
@@ -96,7 +96,7 @@ class TestCompiler:
         fake_gpp = tmp_path / 'nonexistent' / 'avr-g++'
 
         with pytest.raises(CompilerError, match='avr-g\\+\\+ not found'):
-            Compiler(
+            CompilerAVR(
                 avr_gcc=mock_gcc,
                 avr_gpp=fake_gpp,
                 mcu='atmega328p',
@@ -416,7 +416,7 @@ class TestCompiler:
         """Test include directories converted to Path objects."""
         includes = [Path('path/to/core'), Path('path/to/variant')]
 
-        compiler = Compiler(
+        compiler = CompilerAVR(
             avr_gcc=mock_gcc,
             avr_gpp=mock_gpp,
             mcu='atmega328p',

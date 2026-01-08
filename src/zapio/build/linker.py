@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import List, Optional
 from dataclasses import dataclass
 
+from .compiler import Linker, LinkerError
+
 
 @dataclass
 class SizeInfo:
@@ -97,7 +99,7 @@ class LinkResult:
     stderr: str
 
 
-class Linker:
+class LinkerAVR(Linker):
     """
     Wrapper for AVR linker tools.
 
@@ -145,7 +147,7 @@ class Linker:
         if not self.avr_size.exists():
             raise LinkerError(f"avr-size not found: {self.avr_size}")
 
-    def link(
+    def link_legacy(
         self,
         sketch_objects: List[Path],
         core_objects: List[Path],
@@ -156,7 +158,7 @@ class Linker:
         additional_objects: Optional[List[Path]] = None
     ) -> LinkResult:
         """
-        Link object files into firmware.
+        Link object files into firmware (LEGACY method - use link() instead).
 
         Process:
         1. Link sketch objects + core objects + additional objects + library archives to create .elf
@@ -515,7 +517,192 @@ class Linker:
         except Exception:
             return False
 
+    # BaseLinker interface implementation
+    def link(
+        self,
+        sketch_objects: List[Path],
+        core_archive: Path,
+        output_elf: Optional[Path] = None,
+        library_archives: Optional[List[Path]] = None
+    ) -> Path:
+        """Link object files into firmware ELF (BaseLinker interface).
 
-class LinkerError(Exception):
-    """Raised when linking fails."""
-    pass
+        This is the BaseLinker interface method. For the legacy method with more
+        options, see link_with_options().
+
+        Args:
+            sketch_objects: List of sketch object files
+            core_archive: Core archive file (core.a)
+            output_elf: Optional path for output .elf file
+            library_archives: Optional list of library archives
+
+        Returns:
+            Path to generated .elf file
+
+        Raises:
+            LinkerError: If linking fails
+        """
+        # Generate default paths
+        if output_elf is None:
+            output_elf = Path.cwd() / "build" / "firmware.elf"
+
+        output_hex = output_elf.with_suffix('.hex')
+
+        # For AVR with LTO, we don't use core.a directly.
+        # Instead, extract object files from the archive if it exists
+        core_objects = []
+        if core_archive.exists() and core_archive.suffix == '.a':
+            # For now, we'll assume core objects are in the same directory
+            # This is a simplification; in practice, the orchestrator should
+            # pass core objects directly
+            core_obj_dir = core_archive.parent / "core"
+            if core_obj_dir.exists():
+                core_objects = list(core_obj_dir.glob("*.o"))
+
+        # Use the legacy link method
+        result = self.link_with_options(
+            sketch_objects=sketch_objects,
+            core_objects=core_objects,
+            output_elf=output_elf,
+            output_hex=output_hex,
+            lib_archives=library_archives,
+            extra_flags=None,
+            additional_objects=None
+        )
+
+        if not result.success:
+            raise LinkerError(f"Linking failed: {result.stderr}")
+
+        if result.elf_path is None:
+            raise LinkerError("Linking succeeded but no ELF file was generated")
+
+        return result.elf_path
+
+    def generate_bin(self, elf_path: Path) -> Path:
+        """Generate binary from ELF file (BaseLinker interface).
+
+        For AVR: Generates .hex (Intel HEX format)
+
+        Args:
+            elf_path: Path to firmware.elf file
+
+        Returns:
+            Path to generated binary file (.hex for AVR)
+
+        Raises:
+            LinkerError: If binary generation fails
+        """
+        hex_path = elf_path.with_suffix('.hex')
+
+        if not self._objcopy_hex(elf_path, hex_path):
+            raise LinkerError(f"Failed to generate HEX from {elf_path}")
+
+        return hex_path
+
+    def link_with_options(
+        self,
+        sketch_objects: List[Path],
+        core_objects: List[Path],
+        output_elf: Path,
+        output_hex: Path,
+        lib_archives: Optional[List[Path]] = None,
+        extra_flags: Optional[List[str]] = None,
+        additional_objects: Optional[List[Path]] = None
+    ) -> LinkResult:
+        """Link object files into firmware (legacy method with full options).
+
+        This is the original link method with all the AVR-specific options.
+        Process:
+        1. Link sketch objects + core objects + additional objects + library archives to create .elf
+        2. Convert .elf to .hex using avr-objcopy
+        3. Get size information using avr-size
+
+        Note: Core objects are passed directly instead of being archived because
+        LTO with -fno-fat-lto-objects produces bytecode-only objects that don't
+        work well in archives (the archive won't have a proper symbol index).
+
+        Args:
+            sketch_objects: User sketch object files
+            core_objects: Arduino core object files
+            output_elf: Output .elf file path
+            output_hex: Output .hex file path
+            lib_archives: Optional list of library archive (.a) files
+            extra_flags: Additional linker flags
+            additional_objects: Optional additional object files (e.g., library objects for LTO)
+
+        Returns:
+            LinkResult with linking status and size info
+        """
+        try:
+            # Create build directory if needed
+            output_elf.parent.mkdir(parents=True, exist_ok=True)
+
+            # Link to .elf - pass core objects directly instead of archiving
+            link_result = self._link_elf(
+                sketch_objects,
+                core_objects,
+                output_elf,
+                lib_archives or [],
+                extra_flags or [],
+                additional_objects
+            )
+
+            if not link_result or link_result.returncode != 0:
+                return LinkResult(
+                    success=False,
+                    elf_path=None,
+                    hex_path=None,
+                    size_info=None,
+                    stdout=link_result.stdout if link_result else '',
+                    stderr=link_result.stderr if link_result else 'Linking failed'
+                )
+
+            # Step 3: Convert to .hex
+            if not self._objcopy_hex(output_elf, output_hex):
+                return LinkResult(
+                    success=False,
+                    elf_path=output_elf if output_elf.exists() else None,
+                    hex_path=None,
+                    size_info=None,
+                    stdout=link_result.stdout,
+                    stderr='Failed to convert ELF to HEX'
+                )
+
+            # Step 4: Get size info
+            size_info = self._get_size(output_elf)
+
+            # Check for flash overflow
+            if size_info and self.max_flash and size_info.total_flash > self.max_flash:
+                return LinkResult(
+                    success=False,
+                    elf_path=output_elf,
+                    hex_path=output_hex,
+                    size_info=size_info,
+                    stdout=link_result.stdout,
+                    stderr=f'Sketch too large: {size_info.total_flash} bytes (maximum is {self.max_flash} bytes)'
+                )
+
+            return LinkResult(
+                success=True,
+                elf_path=output_elf,
+                hex_path=output_hex,
+                size_info=size_info,
+                stdout=link_result.stdout,
+                stderr=link_result.stderr
+            )
+
+        except KeyboardInterrupt as ke:
+            from zapio.interrupt_utils import handle_keyboard_interrupt_properly
+            handle_keyboard_interrupt_properly(ke)
+            raise  # Never reached, but satisfies type checker
+        except Exception as e:
+            return LinkResult(
+                success=False,
+                elf_path=None,
+                hex_path=None,
+                size_info=None,
+                stdout='',
+                stderr=f'Linking exception: {str(e)}'
+            )
+
+

@@ -15,28 +15,45 @@ __all__ = [
     'SourceCollection',
 ]
 
-# Import other components if they exist
+# Import base classes
 try:
-    from .compiler import Compiler  # noqa: F401
-    __all__.append('Compiler')
+    from .orchestrator import (  # noqa: F401
+        BuildOrchestrator,
+        BuildResult,
+        BuildOrchestratorError
+    )
+    __all__.extend(['BuildOrchestrator', 'BuildResult', 'BuildOrchestratorError'])
 except ImportError:
     pass
 
 try:
-    from .linker import Linker  # noqa: F401
-    __all__.append('Linker')
+    from .compiler import Compiler, CompilerError, Linker, LinkerError  # noqa: F401
+    __all__.extend(['Compiler', 'CompilerError', 'Linker', 'LinkerError'])
+except ImportError:
+    pass
+
+# Import platform-specific implementations
+try:
+    from .avr_compiler import CompilerAVR  # noqa: F401
+    __all__.append('CompilerAVR')
 except ImportError:
     pass
 
 try:
-    from .orchestrator import BuildOrchestrator  # noqa: F401
-    __all__.append('BuildOrchestrator')
+    from .linker import LinkerAVR  # noqa: F401
+    __all__.append('LinkerAVR')
 except ImportError:
     pass
 
 try:
-    from .esp32_orchestrator import ESP32Orchestrator  # noqa: F401
-    __all__.append('ESP32Orchestrator')
+    from .avr_orchestrator import BuildOrchestratorAVR  # noqa: F401
+    __all__.append('BuildOrchestratorAVR')
+except ImportError:
+    pass
+
+try:
+    from .esp32_orchestrator import OrchestratorESP32  # noqa: F401
+    __all__.append('OrchestratorESP32')
 except ImportError:
     pass
 

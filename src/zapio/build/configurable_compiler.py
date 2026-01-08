@@ -11,22 +11,23 @@ Design:
 
 import json
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Union
+from typing import Any, List, Dict, Optional, Union
 
-from ..packages.esp32_platform import ESP32Platform
-from ..packages.esp32_toolchain import ESP32Toolchain
-from ..packages.esp32_framework import ESP32Framework
+from ..packages.esp32_platform import PlatformESP32
+from ..packages.esp32_toolchain import ToolchainESP32
+from ..packages.esp32_framework import FrameworkESP32
 from .flag_builder import FlagBuilder
 from .compilation_executor import CompilationExecutor
 from .archive_creator import ArchiveCreator
+from .compiler import Compiler, CompilerError
 
 
-class ConfigurableCompilerError(Exception):
+class ConfigurableCompilerError(CompilerError):
     """Raised when configurable compilation operations fail."""
     pass
 
 
-class ConfigurableCompiler:
+class ConfigurableCompiler(Compiler):
     """Generic compiler driven by platform configuration.
 
     This class handles:
@@ -38,9 +39,9 @@ class ConfigurableCompiler:
 
     def __init__(
         self,
-        platform: ESP32Platform,
-        toolchain: ESP32Toolchain,
-        framework: ESP32Framework,
+        platform: PlatformESP32,
+        toolchain: ToolchainESP32,
+        framework: FrameworkESP32,
         board_id: str,
         build_dir: Path,
         platform_config: Optional[Union[Dict, Path]] = None,

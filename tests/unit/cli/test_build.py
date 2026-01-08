@@ -27,9 +27,9 @@ class TestCLIBuild:
         mock_config = MagicMock()
         mock_config.get_default_environment.return_value = "default"
 
-        # Mock BuildOrchestrator and PlatformIOConfig
+        # Mock BuildOrchestratorAVR and PlatformIOConfig
         with (
-            patch("zapio.cli.BuildOrchestrator") as mock_orch_class,
+            patch("zapio.cli.BuildOrchestratorAVR") as mock_orch_class,
             patch("zapio.config.PlatformIOConfig", return_value=mock_config),
         ):
             mock_instance = MagicMock()

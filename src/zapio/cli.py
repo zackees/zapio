@@ -11,14 +11,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from zapio.build import BuildOrchestrator
+from zapio.build import BuildOrchestratorAVR
 from zapio.cli_utils import (
     EnvironmentDetector,
     ErrorFormatter,
     MonitorFlagParser,
     PathValidator,
 )
-from zapio.deploy import Deployer
+from zapio.deploy import ESP32Deployer
 from zapio.deploy.monitor import SerialMonitor
 
 
@@ -74,7 +74,7 @@ def build_command(args: BuildArgs) -> None:
 
     try:
         # Create orchestrator
-        orchestrator = BuildOrchestrator(verbose=args.verbose)
+        orchestrator = BuildOrchestratorAVR(verbose=args.verbose)
 
         # Determine environment name
         env_name = EnvironmentDetector.detect_environment(
@@ -180,7 +180,7 @@ def deploy_command(args: DeployArgs) -> None:
             else:
                 print(f"Building environment: {env_name}...")
 
-            orchestrator = BuildOrchestrator(verbose=args.verbose)
+            orchestrator = BuildOrchestratorAVR(verbose=args.verbose)
             build_result = orchestrator.build(
                 project_dir=args.project_dir,
                 env_name=env_name,
@@ -196,7 +196,7 @@ def deploy_command(args: DeployArgs) -> None:
                 ErrorFormatter.print_success("Build successful!")
 
         # Create deployer
-        deployer = Deployer(verbose=args.verbose)
+        deployer = ESP32Deployer(verbose=args.verbose)
 
         # Show deployment start message
         if args.verbose:
@@ -462,15 +462,15 @@ def main() -> None:
 
     # Execute command
     if parsed_args.command == "build":
-        args = BuildArgs(
+        build_args = BuildArgs(
             project_dir=parsed_args.project_dir,
             environment=parsed_args.environment,
             clean=parsed_args.clean,
             verbose=parsed_args.verbose,
         )
-        build_command(args)
+        build_command(build_args)
     elif parsed_args.command == "deploy":
-        args = DeployArgs(
+        deploy_args = DeployArgs(
             project_dir=parsed_args.project_dir,
             environment=parsed_args.environment,
             port=parsed_args.port,
@@ -478,9 +478,9 @@ def main() -> None:
             monitor=parsed_args.monitor,
             verbose=parsed_args.verbose,
         )
-        deploy_command(args)
+        deploy_command(deploy_args)
     elif parsed_args.command == "monitor":
-        args = MonitorArgs(
+        monitor_args = MonitorArgs(
             project_dir=parsed_args.project_dir,
             environment=parsed_args.environment,
             port=parsed_args.port,
@@ -490,7 +490,7 @@ def main() -> None:
             halt_on_success=parsed_args.halt_on_success,
             verbose=parsed_args.verbose,
         )
-        monitor_command(args)
+        monitor_command(monitor_args)
 
 
 if __name__ == "__main__":

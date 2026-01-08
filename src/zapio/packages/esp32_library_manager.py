@@ -17,13 +17,13 @@ from zapio.packages.platformio_registry import (
 )
 
 
-class ESP32LibraryError(Exception):
+class LibraryErrorESP32(Exception):
     """Exception for ESP32 library management errors."""
 
     pass
 
 
-class ESP32Library:
+class LibraryESP32:
     """Represents a downloaded and compiled ESP32 library."""
 
     def __init__(self, lib_dir: Path, name: str):
@@ -106,7 +106,7 @@ class ESP32Library:
         return include_dirs
 
 
-class ESP32LibraryManager:
+class LibraryManagerESP32:
     """Manages ESP32 library dependencies."""
 
     def __init__(self, build_dir: Path, registry: Optional[PlatformIORegistry] = None):
@@ -134,22 +134,22 @@ class ESP32LibraryManager:
         """
         return name.lower().replace("/", "_").replace("@", "_")
 
-    def get_library(self, spec: LibrarySpec) -> ESP32Library:
+    def get_library(self, spec: LibrarySpec) -> LibraryESP32:
         """Get a library instance for a specification.
 
         Args:
             spec: Library specification
 
         Returns:
-            ESP32Library instance
+            LibraryESP32 instance
         """
         lib_name = self._sanitize_name(spec.name)
         lib_dir = self.libs_dir / lib_name
-        return ESP32Library(lib_dir, lib_name)
+        return LibraryESP32(lib_dir, lib_name)
 
     def download_library(
         self, spec: LibrarySpec, show_progress: bool = True
-    ) -> ESP32Library:
+    ) -> LibraryESP32:
         """Download a library from PlatformIO registry.
 
         Args:
@@ -157,10 +157,10 @@ class ESP32LibraryManager:
             show_progress: Whether to show progress
 
         Returns:
-            ESP32Library instance
+            LibraryESP32 instance
 
         Raises:
-            ESP32LibraryError: If download fails
+            LibraryErrorESP32: If download fails
         """
         try:
             library = self.get_library(spec)
@@ -179,10 +179,10 @@ class ESP32LibraryManager:
             return library
 
         except RegistryError as e:
-            raise ESP32LibraryError(f"Failed to download library {spec}: {e}") from e
+            raise LibraryErrorESP32(f"Failed to download library {spec}: {e}") from e
 
     def needs_rebuild(
-        self, library: ESP32Library, compiler_flags: List[str]
+        self, library: LibraryESP32, compiler_flags: List[str]
     ) -> tuple[bool, str]:
         """Check if a library needs to be rebuilt.
 
@@ -220,7 +220,7 @@ class ESP32LibraryManager:
 
     def compile_library(
         self,
-        library: ESP32Library,
+        library: LibraryESP32,
         toolchain_path: Path,
         compiler_flags: List[str],
         include_paths: List[Path],
@@ -239,7 +239,7 @@ class ESP32LibraryManager:
             Path to compiled archive file
 
         Raises:
-            ESP32LibraryError: If compilation fails
+            LibraryErrorESP32: If compilation fails
         """
         try:
             if show_progress:
@@ -248,7 +248,7 @@ class ESP32LibraryManager:
             # Get source files
             sources = library.get_source_files()
             if not sources:
-                raise ESP32LibraryError(
+                raise LibraryErrorESP32(
                     f"No source files found in library '{library.name}'"
                 )
 
@@ -300,7 +300,7 @@ class ESP32LibraryManager:
                 )
 
                 if result.returncode != 0:
-                    raise ESP32LibraryError(
+                    raise LibraryErrorESP32(
                         f"Failed to compile {source.name}:\n{result.stderr}"
                     )
 
@@ -325,7 +325,7 @@ class ESP32LibraryManager:
             )
 
             if result.returncode != 0:
-                raise ESP32LibraryError(
+                raise LibraryErrorESP32(
                     f"Failed to create archive for {library.name}:\n{result.stderr}"
                 )
 
@@ -344,7 +344,7 @@ class ESP32LibraryManager:
             return library.archive_file
 
         except subprocess.CalledProcessError as e:
-            raise ESP32LibraryError(
+            raise LibraryErrorESP32(
                 f"Compilation failed for library '{library.name}': {e}"
             ) from e
         except KeyboardInterrupt as ke:
@@ -353,7 +353,7 @@ class ESP32LibraryManager:
             handle_keyboard_interrupt_properly(ke)
             raise  # Never reached, but satisfies type checker
         except Exception as e:
-            raise ESP32LibraryError(
+            raise LibraryErrorESP32(
                 f"Failed to compile library '{library.name}': {e}"
             ) from e
 
@@ -364,7 +364,7 @@ class ESP32LibraryManager:
         compiler_flags: List[str],
         include_paths: List[Path],
         show_progress: bool = True,
-    ) -> List[ESP32Library]:
+    ) -> List[LibraryESP32]:
         """Ensure all library dependencies are downloaded and compiled.
 
         Args:
@@ -375,7 +375,7 @@ class ESP32LibraryManager:
             show_progress: Whether to show progress
 
         Returns:
-            List of compiled ESP32Library instances
+            List of compiled LibraryESP32 instances
         """
         libraries = []
 
@@ -433,7 +433,7 @@ class ESP32LibraryManager:
         if self.libs_dir.exists():
             for lib_dir in self.libs_dir.iterdir():
                 if lib_dir.is_dir():
-                    library = ESP32Library(lib_dir, lib_dir.name)
+                    library = LibraryESP32(lib_dir, lib_dir.name)
                     if library.exists:
                         include_paths.extend(library.get_include_dirs())
         return include_paths

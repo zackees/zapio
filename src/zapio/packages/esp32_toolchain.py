@@ -42,12 +42,13 @@ from typing import Any, Dict, Literal, Optional, cast
 
 from .cache import Cache
 from .downloader import DownloadError, ExtractionError, PackageDownloader
+from .package import PackageError, Toolchain
 from .platform_utils import PlatformDetector
 from .toolchain_binaries import ToolchainBinaryFinder
 from .toolchain_metadata import MetadataParseError, ToolchainMetadataParser
 
 
-class ESP32ToolchainError(Exception):
+class ToolchainErrorESP32(PackageError):
     """Raised when ESP32 toolchain operations fail."""
 
     pass
@@ -56,7 +57,7 @@ class ESP32ToolchainError(Exception):
 ToolchainType = Literal["riscv32-esp", "xtensa-esp-elf"]
 
 
-class ESP32Toolchain:
+class ToolchainESP32(Toolchain):
     """Manages ESP32 toolchain download, extraction, and access.
 
     This class handles downloading and managing GCC toolchains for ESP32 family:
@@ -156,13 +157,13 @@ class ESP32Toolchain:
             Toolchain type string ("riscv32-esp" or "xtensa-esp-elf")
 
         Raises:
-            ESP32ToolchainError: If MCU type is unknown
+            ToolchainErrorESP32: If MCU type is unknown
         """
         mcu_lower = mcu.lower()
-        if mcu_lower in ESP32Toolchain.MCU_TOOLCHAIN_MAP:
-            return cast(ToolchainType, ESP32Toolchain.MCU_TOOLCHAIN_MAP[mcu_lower])
+        if mcu_lower in ToolchainESP32.MCU_TOOLCHAIN_MAP:
+            return cast(ToolchainType, ToolchainESP32.MCU_TOOLCHAIN_MAP[mcu_lower])
 
-        raise ESP32ToolchainError(f"Unknown MCU type: {mcu}")
+        raise ToolchainErrorESP32(f"Unknown MCU type: {mcu}")
 
     @staticmethod
     def detect_platform() -> str:
@@ -179,7 +180,7 @@ class ESP32Toolchain:
             handle_keyboard_interrupt_properly(ke)
             raise  # Never reached, but satisfies type checker
         except Exception as e:
-            raise ESP32ToolchainError(str(e))
+            raise ToolchainErrorESP32(str(e))
 
     def _get_platform_url_from_metadata(self) -> str:
         """Download metadata package and extract platform-specific toolchain URL.
@@ -188,7 +189,7 @@ class ESP32Toolchain:
             URL to platform-specific toolchain archive
 
         Raises:
-            ESP32ToolchainError: If metadata cannot be parsed or platform not found
+            ToolchainErrorESP32: If metadata cannot be parsed or platform not found
         """
         try:
             current_platform = self.detect_platform()
@@ -202,7 +203,7 @@ class ESP32Toolchain:
                 show_progress=self.show_progress,
             )
         except MetadataParseError as e:
-            raise ESP32ToolchainError(str(e))
+            raise ToolchainErrorESP32(str(e))
 
     def ensure_toolchain(self) -> Path:
         """Ensure toolchain is downloaded and extracted.
@@ -211,7 +212,7 @@ class ESP32Toolchain:
             Path to the extracted toolchain directory
 
         Raises:
-            ESP32ToolchainError: If download or extraction fails
+            ToolchainErrorESP32: If download or extraction fails
         """
         if self.is_installed():
             if self.show_progress:
@@ -308,7 +309,7 @@ class ESP32Toolchain:
             return self.toolchain_path
 
         except (DownloadError, ExtractionError) as e:
-            raise ESP32ToolchainError(
+            raise ToolchainErrorESP32(
                 f"Failed to install {self.toolchain_type} toolchain: {e}"
             )
         except KeyboardInterrupt as ke:
@@ -317,7 +318,7 @@ class ESP32Toolchain:
             handle_keyboard_interrupt_properly(ke)
             raise  # Never reached, but satisfies type checker
         except Exception as e:
-            raise ESP32ToolchainError(f"Unexpected error installing toolchain: {e}")
+            raise ToolchainErrorESP32(f"Unexpected error installing toolchain: {e}")
 
     def is_installed(self) -> bool:
         """Check if toolchain is already installed.
@@ -406,6 +407,26 @@ class ESP32Toolchain:
         """
         return self.binary_finder.get_common_tool_paths()
 
+    def get_all_tools(self) -> Dict[str, Path]:
+        """Get paths to all required tools.
+
+        Returns:
+            Dictionary mapping tool names to their paths
+
+        Raises:
+            ToolchainErrorESP32: If any required tool is not found
+        """
+        tools = self.get_all_tool_paths()
+
+        # Filter out None values and verify all tools exist
+        result = {}
+        for name, path in tools.items():
+            if path is None:
+                raise ToolchainErrorESP32(f"Required tool not found: {name}")
+            result[name] = path
+
+        return result
+
     def get_bin_path(self) -> Optional[Path]:
         """Get path to toolchain bin directory.
 
@@ -421,7 +442,7 @@ class ESP32Toolchain:
             True if all essential binaries are present
 
         Raises:
-            ESP32ToolchainError: If essential binaries are missing
+            ToolchainErrorESP32: If essential binaries are missing
         """
         try:
             return self.binary_finder.verify_installation()
@@ -431,7 +452,7 @@ class ESP32Toolchain:
             handle_keyboard_interrupt_properly(ke)
             raise  # Never reached, but satisfies type checker
         except Exception as e:
-            raise ESP32ToolchainError(str(e))
+            raise ToolchainErrorESP32(str(e))
 
     def get_toolchain_info(self) -> Dict[str, Any]:
         """Get information about the installed toolchain.
@@ -456,3 +477,23 @@ class ESP32Toolchain:
             }
 
         return info
+
+    # Implement BasePackage interface
+    def ensure_package(self) -> Path:
+        """Ensure package is downloaded and extracted.
+
+        Returns:
+            Path to the extracted package directory
+
+        Raises:
+            PackageError: If download or extraction fails
+        """
+        return self.ensure_toolchain()
+
+    def get_package_info(self) -> Dict[str, Any]:
+        """Get information about the package.
+
+        Returns:
+            Dictionary with package metadata (version, path, etc.)
+        """
+        return self.get_toolchain_info()

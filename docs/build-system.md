@@ -34,6 +34,98 @@ Zapio is a modern embedded development tool that compiles Arduino sketches using
 
 ## Component Breakdown
 
+## Abstract Base Classes (ABCs)
+
+**Location**: `src/zapio/build/base_*.py`, `src/zapio/packages/base_package.py`, `src/zapio/deploy/base_deployer.py`
+
+Zapio uses Python's Abstract Base Classes (ABC) to define clear interfaces for polymorphic components. This ensures type safety, consistency, and makes the codebase more maintainable and extensible.
+
+### Package Management ABCs
+
+#### BasePackage (`packages/base_package.py`)
+Base class for all package types (toolchains, platforms, frameworks).
+
+**Key Methods**:
+- `ensure_package()` - Download and validate package
+- `get_package_info()` - Get package metadata (name, version, URL)
+- `verify_package()` - Verify package integrity
+
+**Implementations**:
+- `Toolchain` - AVR toolchain management
+- `ESP32Toolchain` - ESP32 toolchain management  
+- `ArduinoCore` (BaseFramework) - Arduino core library
+- `ESP32Framework` (BaseFramework) - ESP32 framework
+- `ESP32Platform` (BasePackage) - ESP32 platform support
+
+### Build System ABCs
+
+#### BaseCompiler (`build/base_compiler.py`)
+Base class for all compiler implementations.
+
+**Key Methods**:
+- `compile(source_path, output_path)` - Compile single source file
+- `get_include_paths()` - Get include directories
+- `get_compile_flags()` - Get compilation flags
+
+**Implementations**:
+- `Compiler` - AVR GCC/G++ wrapper
+- `ConfigurableCompiler` - Generic platform-agnostic compiler
+
+#### BaseLinker (`build/base_linker.py`)
+Base class for all linker implementations.
+
+**Key Methods**:
+- `link(objects, output_elf, output_hex)` - Link objects to firmware
+- `get_link_flags()` - Get linker flags
+- `create_hex(elf_path, hex_path)` - Convert ELF to HEX
+
+**Implementations**:
+- `Linker` - AVR linker wrapper
+- `ConfigurableLinker` - Generic platform-agnostic linker
+
+#### BaseBuildOrchestrator (`build/base_orchestrator.py`)
+Base class for build orchestration.
+
+**Key Methods**:
+- `build(project_dir, env_name, clean, verbose)` - Execute complete build
+
+**Implementations**:
+- `BuildOrchestrator` - AVR build orchestration
+- `ESP32Orchestrator` - ESP32 build orchestration
+
+### Deployment ABCs
+
+#### BaseDeployer (`deploy/base_deployer.py`)
+Base class for firmware deployment.
+
+**Key Methods**:
+- `deploy(firmware_path, port, baud)` - Deploy firmware to device
+- `_detect_serial_port()` - Auto-detect serial port
+
+**Implementations**:
+- `Deployer` - Generic firmware deployer (supports esptool)
+
+### Benefits of ABC Architecture
+
+1. **Type Safety**: Mypy can verify that all implementations conform to the interface
+2. **Consistency**: All platforms follow the same patterns
+3. **Extensibility**: New platforms can be added by implementing the ABCs
+4. **Documentation**: ABCs serve as living documentation of required interfaces
+5. **Maintainability**: Changes to interfaces are enforced across all implementations
+
+### Adding New Platform Support
+
+To add support for a new platform (e.g., ARM):
+
+1. Implement `BasePackage` for the new toolchain
+2. Implement `BaseCompiler` for the platform compiler
+3. Implement `BaseLinker` for the platform linker
+4. Implement `BaseBuildOrchestrator` to coordinate the build
+5. Update CLI to detect and route to new orchestrator
+
+All implementations will be type-checked to ensure they conform to the base interfaces.
+
+
 ### 1. Configuration System
 
 **Location**: `src/zapio/config/`

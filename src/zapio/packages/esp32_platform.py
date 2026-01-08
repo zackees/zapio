@@ -28,15 +28,16 @@ from typing import Any, Dict, Optional
 
 from .cache import Cache
 from .downloader import DownloadError, ExtractionError, PackageDownloader
+from .package import Package, PackageError
 
 
-class ESP32PlatformError(Exception):
+class PlatformErrorESP32(PackageError):
     """Raised when ESP32 platform operations fail."""
 
     pass
 
 
-class ESP32Platform:
+class PlatformESP32(Package):
     """Manages ESP32 platform package download, extraction, and access.
 
     This class handles the pioarduino/platform-espressif32 package which contains:
@@ -86,6 +87,17 @@ class ESP32Platform:
 
         return Cache.hash_url(url)[:8]
 
+    def ensure_package(self) -> Path:
+        """Ensure platform is downloaded and extracted.
+
+        Returns:
+            Path to the extracted platform directory
+
+        Raises:
+            PlatformErrorESP32: If download or extraction fails
+        """
+        return self.ensure_platform()
+
     def ensure_platform(self) -> Path:
         """Ensure platform is downloaded and extracted.
 
@@ -93,7 +105,7 @@ class ESP32Platform:
             Path to the extracted platform directory
 
         Raises:
-            ESP32PlatformError: If download or extraction fails
+            PlatformErrorESP32: If download or extraction fails
         """
         if self.is_installed():
             if self.show_progress:
@@ -162,14 +174,14 @@ class ESP32Platform:
             return self.platform_path
 
         except (DownloadError, ExtractionError) as e:
-            raise ESP32PlatformError(f"Failed to install ESP32 platform: {e}")
+            raise PlatformErrorESP32(f"Failed to install ESP32 platform: {e}")
         except KeyboardInterrupt as ke:
             from zapio.interrupt_utils import handle_keyboard_interrupt_properly
 
             handle_keyboard_interrupt_properly(ke)
             raise  # Never reached, but satisfies type checker
         except Exception as e:
-            raise ESP32PlatformError(f"Unexpected error installing platform: {e}")
+            raise PlatformErrorESP32(f"Unexpected error installing platform: {e}")
 
     def is_installed(self) -> bool:
         """Check if platform is already installed.
@@ -195,12 +207,12 @@ class ESP32Platform:
             Dictionary containing platform metadata
 
         Raises:
-            ESP32PlatformError: If platform.json doesn't exist or is invalid
+            PlatformErrorESP32: If platform.json doesn't exist or is invalid
         """
         platform_json_path = self.platform_path / "platform.json"
 
         if not platform_json_path.exists():
-            raise ESP32PlatformError(
+            raise PlatformErrorESP32(
                 f"platform.json not found at {platform_json_path}. "
                 + "Ensure platform is downloaded first."
             )
@@ -209,14 +221,14 @@ class ESP32Platform:
             with open(platform_json_path, "r") as f:
                 return json.load(f)
         except json.JSONDecodeError as e:
-            raise ESP32PlatformError(f"Failed to parse platform.json: {e}")
+            raise PlatformErrorESP32(f"Failed to parse platform.json: {e}")
         except KeyboardInterrupt as ke:
             from zapio.interrupt_utils import handle_keyboard_interrupt_properly
 
             handle_keyboard_interrupt_properly(ke)
             raise  # Never reached, but satisfies type checker
         except Exception as e:
-            raise ESP32PlatformError(f"Failed to read platform.json: {e}")
+            raise PlatformErrorESP32(f"Failed to read platform.json: {e}")
 
     def get_package_url(self, package_name: str) -> Optional[str]:
         """Get download URL for a specific package.
@@ -293,12 +305,12 @@ class ESP32Platform:
             Dictionary containing board configuration
 
         Raises:
-            ESP32PlatformError: If board JSON doesn't exist or is invalid
+            PlatformErrorESP32: If board JSON doesn't exist or is invalid
         """
         board_json_path = self.get_boards_dir() / f"{board_id}.json"
 
         if not board_json_path.exists():
-            raise ESP32PlatformError(
+            raise PlatformErrorESP32(
                 f"Board definition not found: {board_id} " + f"at {board_json_path}"
             )
 
@@ -306,14 +318,14 @@ class ESP32Platform:
             with open(board_json_path, "r") as f:
                 return json.load(f)
         except json.JSONDecodeError as e:
-            raise ESP32PlatformError(f"Failed to parse board JSON: {e}")
+            raise PlatformErrorESP32(f"Failed to parse board JSON: {e}")
         except KeyboardInterrupt as ke:
             from zapio.interrupt_utils import handle_keyboard_interrupt_properly
 
             handle_keyboard_interrupt_properly(ke)
             raise  # Never reached, but satisfies type checker
         except Exception as e:
-            raise ESP32PlatformError(f"Failed to read board JSON: {e}")
+            raise PlatformErrorESP32(f"Failed to read board JSON: {e}")
 
     def list_boards(self) -> list[str]:
         """List all available board IDs.
@@ -330,6 +342,14 @@ class ESP32Platform:
             for f in boards_dir.glob("*.json")
             if f.is_file() and not f.name.endswith(".py")
         ]
+
+    def get_package_info(self) -> Dict[str, Any]:
+        """Get information about the installed platform.
+
+        Returns:
+            Dictionary with platform information
+        """
+        return self.get_platform_info()
 
     def get_platform_info(self) -> Dict[str, Any]:
         """Get information about the installed platform.
@@ -355,7 +375,7 @@ class ESP32Platform:
                 info["available_packages"] = list(
                     platform_json.get("packages", {}).keys()
                 )
-            except ESP32PlatformError:
+            except PlatformErrorESP32:
                 pass
 
         return info

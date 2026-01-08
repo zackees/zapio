@@ -11,18 +11,19 @@ from typing import List, Optional
 from dataclasses import dataclass
 
 from ..packages import Cache
-from ..packages.esp32_platform import ESP32Platform
-from ..packages.esp32_toolchain import ESP32Toolchain
-from ..packages.esp32_framework import ESP32Framework
-from ..packages.esp32_library_manager import ESP32LibraryManager
+from ..packages.esp32_platform import PlatformESP32
+from ..packages.esp32_toolchain import ToolchainESP32
+from ..packages.esp32_framework import FrameworkESP32
+from ..packages.esp32_library_manager import LibraryManagerESP32
 from .configurable_compiler import ConfigurableCompiler
 from .configurable_linker import ConfigurableLinker
 from .linker import SizeInfo
+from .orchestrator import BuildOrchestrator, BuildResult
 
 
 @dataclass
-class ESP32BuildResult:
-    """Result of an ESP32 build operation."""
+class BuildResultESP32:
+    """Result of an ESP32 build operation (internal use)."""
 
     success: bool
     firmware_bin: Optional[Path]
@@ -34,7 +35,7 @@ class ESP32BuildResult:
     message: str
 
 
-class ESP32Orchestrator:
+class OrchestratorESP32(BuildOrchestrator):
     """
     Orchestrates ESP32-specific build process.
 
@@ -56,14 +57,99 @@ class ESP32Orchestrator:
     def build(
         self,
         project_dir: Path,
+        env_name: Optional[str] = None,
+        clean: bool = False,
+        verbose: Optional[bool] = None
+    ) -> BuildResult:
+        """Execute complete build process (BaseBuildOrchestrator interface).
+
+        Args:
+            project_dir: Project root directory containing platformio.ini
+            env_name: Environment name to build (defaults to first/default env)
+            clean: Clean build (remove all artifacts before building)
+            verbose: Override verbose setting
+
+        Returns:
+            BuildResult with build status and output paths
+
+        Raises:
+            BuildOrchestratorError: If build fails at any phase
+        """
+        from ..config import PlatformIOConfig
+
+        verbose_mode = verbose if verbose is not None else self.verbose
+
+        # Parse platformio.ini to get environment configuration
+        ini_path = project_dir / "platformio.ini"
+        if not ini_path.exists():
+            return BuildResult(
+                success=False,
+                hex_path=None,
+                elf_path=None,
+                size_info=None,
+                build_time=0.0,
+                message=f"platformio.ini not found in {project_dir}"
+            )
+
+        try:
+            config = PlatformIOConfig(ini_path)
+
+            # Determine environment to build
+            if env_name is None:
+                env_name = config.get_default_environment()
+                if env_name is None:
+                    return BuildResult(
+                        success=False,
+                        hex_path=None,
+                        elf_path=None,
+                        size_info=None,
+                        build_time=0.0,
+                        message="No environment specified and no default found in platformio.ini"
+                    )
+
+            env_config = config.get_env_config(env_name)
+            board_id = env_config.get("board", "")
+            build_flags = config.get_build_flags(env_name)
+
+            # Call internal build method
+            esp32_result = self._build_esp32(
+                project_dir, env_name, board_id, env_config, build_flags, clean, verbose_mode
+            )
+
+            # Convert BuildResultESP32 to BuildResult
+            return BuildResult(
+                success=esp32_result.success,
+                hex_path=esp32_result.firmware_bin,
+                elf_path=esp32_result.firmware_elf,
+                size_info=esp32_result.size_info,
+                build_time=esp32_result.build_time,
+                message=esp32_result.message
+            )
+
+        except KeyboardInterrupt:
+            raise
+        except Exception as e:
+            return BuildResult(
+                success=False,
+                hex_path=None,
+                elf_path=None,
+                size_info=None,
+                build_time=0.0,
+                message=f"Failed to parse configuration: {e}"
+            )
+
+    def _build_esp32(
+        self,
+        project_dir: Path,
         env_name: str,
         board_id: str,
         env_config: dict,
         build_flags: List[str],
-        clean: bool = False
-    ) -> ESP32BuildResult:
+        clean: bool = False,
+        verbose: bool = False
+    ) -> BuildResultESP32:
         """
-        Execute complete ESP32 build process.
+        Execute complete ESP32 build process (internal implementation).
 
         Args:
             project_dir: Project directory
@@ -72,9 +158,10 @@ class ESP32Orchestrator:
             env_config: Environment configuration dict
             build_flags: User build flags from platformio.ini
             clean: Whether to clean before build
+            verbose: Verbose output mode
 
         Returns:
-            ESP32BuildResult with build status and output paths
+            BuildResultESP32 with build status and output paths
         """
         start_time = time.time()
 
@@ -88,17 +175,17 @@ class ESP32Orchestrator:
                 )
 
             # Initialize platform
-            if self.verbose:
+            if verbose:
                 print("[3/10] Initializing ESP32 platform...")
 
-            platform = ESP32Platform(self.cache, platform_url, show_progress=self.verbose)
+            platform = PlatformESP32(self.cache, platform_url, show_progress=verbose)
             platform.ensure_platform()
 
             # Get board configuration
             board_json = platform.get_board_json(board_id)
             mcu = board_json.get("build", {}).get("mcu", "esp32c6")
 
-            if self.verbose:
+            if verbose:
                 print(f"      Board: {board_id}")
                 print(f"      MCU: {mcu}")
 
@@ -106,7 +193,7 @@ class ESP32Orchestrator:
             packages = platform.get_required_packages(mcu)
 
             # Initialize toolchain
-            toolchain = self._setup_toolchain(packages, start_time)
+            toolchain = self._setup_toolchain(packages, start_time, verbose)
             if toolchain is None:
                 return self._error_result(
                     start_time,
@@ -114,7 +201,7 @@ class ESP32Orchestrator:
                 )
 
             # Initialize framework
-            framework = self._setup_framework(packages, start_time)
+            framework = self._setup_framework(packages, start_time, verbose)
             if framework is None:
                 return self._error_result(
                     start_time,
@@ -122,10 +209,10 @@ class ESP32Orchestrator:
                 )
 
             # Setup build directory
-            build_dir = self._setup_build_directory(env_name, clean)
+            build_dir = self._setup_build_directory(env_name, clean, verbose)
 
             # Initialize compiler
-            if self.verbose:
+            if verbose:
                 print("[7/10] Compiling Arduino core...")
 
             compiler = ConfigurableCompiler(
@@ -135,7 +222,7 @@ class ESP32Orchestrator:
                 board_id,
                 build_dir,
                 platform_config=None,
-                show_progress=self.verbose,
+                show_progress=verbose,
                 user_build_flags=build_flags
             )
 
@@ -143,12 +230,12 @@ class ESP32Orchestrator:
             core_obj_files = compiler.compile_core()
             core_archive = compiler.create_core_archive(core_obj_files)
 
-            if self.verbose:
+            if verbose:
                 print(f"      Compiled {len(core_obj_files)} core source files")
 
             # Handle library dependencies
             library_archives, library_include_paths = self._process_libraries(
-                env_config, build_dir, compiler, toolchain
+                env_config, build_dir, compiler, toolchain, verbose
             )
 
             # Add library include paths to compiler
@@ -156,7 +243,7 @@ class ESP32Orchestrator:
                 compiler.add_library_includes(library_include_paths)
 
             # Find and compile sketch
-            sketch_obj_files = self._compile_sketch(project_dir, compiler, start_time)
+            sketch_obj_files = self._compile_sketch(project_dir, compiler, start_time, verbose)
             if sketch_obj_files is None:
                 return self._error_result(
                     start_time,
@@ -164,7 +251,7 @@ class ESP32Orchestrator:
                 )
 
             # Initialize linker
-            if self.verbose:
+            if verbose:
                 print("[9/10] Linking firmware...")
 
             linker = ConfigurableLinker(
@@ -174,32 +261,32 @@ class ESP32Orchestrator:
                 board_id,
                 build_dir,
                 platform_config=None,
-                show_progress=self.verbose
+                show_progress=verbose
             )
 
             # Link firmware
             firmware_elf = linker.link(sketch_obj_files, core_archive, library_archives=library_archives)
 
             # Generate binary
-            if self.verbose:
+            if verbose:
                 print("[10/10] Generating firmware binary...")
 
             firmware_bin = linker.generate_bin(firmware_elf)
 
             # Generate bootloader and partition table
             bootloader_bin, partitions_bin = self._generate_boot_components(
-                linker, mcu
+                linker, mcu, verbose
             )
 
             build_time = time.time() - start_time
 
-            if self.verbose:
+            if verbose:
                 self._print_success(
                     build_time, firmware_elf, firmware_bin,
                     bootloader_bin, partitions_bin
                 )
 
-            return ESP32BuildResult(
+            return BuildResultESP32(
                 success=True,
                 firmware_bin=firmware_bin,
                 firmware_elf=firmware_elf,
@@ -218,7 +305,7 @@ class ESP32Orchestrator:
             build_time = time.time() - start_time
             import traceback
             error_trace = traceback.format_exc()
-            return ESP32BuildResult(
+            return BuildResultESP32(
                 success=False,
                 firmware_bin=None,
                 firmware_elf=None,
@@ -232,19 +319,21 @@ class ESP32Orchestrator:
     def _setup_toolchain(
         self,
         packages: dict,
-        start_time: float
-    ) -> Optional[ESP32Toolchain]:
+        start_time: float,
+        verbose: bool
+    ) -> Optional['ToolchainESP32']:
         """
         Initialize ESP32 toolchain.
 
         Args:
             packages: Package URLs dictionary
             start_time: Build start time for error reporting
+            verbose: Verbose output mode
 
         Returns:
-            ESP32Toolchain instance or None on failure
+            ToolchainESP32 instance or None on failure
         """
-        if self.verbose:
+        if verbose:
             print("[4/10] Initializing ESP32 toolchain...")
 
         toolchain_url = packages.get("toolchain-riscv32-esp") or packages.get("toolchain-xtensa-esp-elf")
@@ -253,11 +342,11 @@ class ESP32Orchestrator:
 
         # Determine toolchain type
         toolchain_type = "riscv32-esp" if "riscv32" in toolchain_url else "xtensa-esp-elf"
-        toolchain = ESP32Toolchain(
+        toolchain = ToolchainESP32(
             self.cache,
             toolchain_url,
             toolchain_type,
-            show_progress=self.verbose
+            show_progress=verbose
         )
         toolchain.ensure_toolchain()
         return toolchain
@@ -265,19 +354,21 @@ class ESP32Orchestrator:
     def _setup_framework(
         self,
         packages: dict,
-        start_time: float
-    ) -> Optional[ESP32Framework]:
+        start_time: float,
+        verbose: bool
+    ) -> Optional[FrameworkESP32]:
         """
         Initialize ESP32 framework.
 
         Args:
             packages: Package URLs dictionary
             start_time: Build start time for error reporting
+            verbose: Verbose output mode
 
         Returns:
-            ESP32Framework instance or None on failure
+            FrameworkESP32 instance or None on failure
         """
-        if self.verbose:
+        if verbose:
             print("[5/10] Initializing ESP32 framework...")
 
         framework_url = packages.get("framework-arduinoespressif32")
@@ -286,22 +377,23 @@ class ESP32Orchestrator:
         if not framework_url or not libs_url:
             return None
 
-        framework = ESP32Framework(
+        framework = FrameworkESP32(
             self.cache,
             framework_url,
             libs_url,
-            show_progress=self.verbose
+            show_progress=verbose
         )
         framework.ensure_framework()
         return framework
 
-    def _setup_build_directory(self, env_name: str, clean: bool) -> Path:
+    def _setup_build_directory(self, env_name: str, clean: bool, verbose: bool) -> Path:
         """
         Setup build directory with optional cleaning.
 
         Args:
             env_name: Environment name
             clean: Whether to clean before build
+            verbose: Verbose output mode
 
         Returns:
             Build directory path
@@ -309,7 +401,7 @@ class ESP32Orchestrator:
         build_dir = self.cache.get_build_dir(env_name)
 
         if clean and build_dir.exists():
-            if self.verbose:
+            if verbose:
                 print("[6/10] Cleaning build directory...")
             import shutil
             shutil.rmtree(build_dir)
@@ -322,7 +414,8 @@ class ESP32Orchestrator:
         env_config: dict,
         build_dir: Path,
         compiler: ConfigurableCompiler,
-        toolchain: ESP32Toolchain
+        toolchain: ToolchainESP32,
+        verbose: bool
     ) -> tuple[List[Path], List[Path]]:
         """
         Process and compile library dependencies.
@@ -332,6 +425,7 @@ class ESP32Orchestrator:
             build_dir: Build directory
             compiler: Configured compiler instance
             toolchain: ESP32 toolchain instance
+            verbose: Verbose output mode
 
         Returns:
             Tuple of (library_archives, library_include_paths)
@@ -343,7 +437,7 @@ class ESP32Orchestrator:
         if not lib_deps:
             return library_archives, library_include_paths
 
-        if self.verbose:
+        if verbose:
             print("[7.5/10] Processing library dependencies...")
 
         # Parse lib_deps (can be string or list)
@@ -356,7 +450,7 @@ class ESP32Orchestrator:
             return library_archives, library_include_paths
 
         # Initialize library manager
-        lib_manager = ESP32LibraryManager(build_dir)
+        lib_manager = LibraryManagerESP32(build_dir)
 
         # Get compiler flags for library compilation
         lib_compiler_flags = compiler.get_base_flags()
@@ -367,7 +461,7 @@ class ESP32Orchestrator:
         # Get toolchain bin path
         toolchain_bin_path = toolchain.get_bin_path()
         if toolchain_bin_path is None:
-            if self.verbose:
+            if verbose:
                 print("      Warning: Toolchain bin directory not found, skipping libraries")
             return library_archives, library_include_paths
 
@@ -377,14 +471,14 @@ class ESP32Orchestrator:
             toolchain_bin_path,
             lib_compiler_flags,
             lib_include_paths,
-            show_progress=self.verbose
+            show_progress=verbose
         )
 
         # Get library archives and include paths
         library_archives = [lib.archive_file for lib in libraries if lib.is_compiled]
         library_include_paths = lib_manager.get_library_include_paths()
 
-        if self.verbose:
+        if verbose:
             print(f"      Compiled {len(libraries)} library dependencies")
 
         return library_archives, library_include_paths
@@ -393,7 +487,8 @@ class ESP32Orchestrator:
         self,
         project_dir: Path,
         compiler: ConfigurableCompiler,
-        start_time: float
+        start_time: float,
+        verbose: bool
     ) -> Optional[List[Path]]:
         """
         Find and compile sketch files.
@@ -402,11 +497,12 @@ class ESP32Orchestrator:
             project_dir: Project directory
             compiler: Configured compiler instance
             start_time: Build start time for error reporting
+            verbose: Verbose output mode
 
         Returns:
             List of compiled object files or None if no sketch found
         """
-        if self.verbose:
+        if verbose:
             print("[8/10] Compiling sketch...")
 
         # Look for .ino files in the project directory
@@ -417,7 +513,7 @@ class ESP32Orchestrator:
         sketch_path = sketch_files[0]
         sketch_obj_files = compiler.compile_sketch(sketch_path)
 
-        if self.verbose:
+        if verbose:
             print(f"      Compiled {len(sketch_obj_files)} sketch file(s)")
 
         return sketch_obj_files
@@ -425,7 +521,8 @@ class ESP32Orchestrator:
     def _generate_boot_components(
         self,
         linker: ConfigurableLinker,
-        mcu: str
+        mcu: str,
+        verbose: bool
     ) -> tuple[Optional[Path], Optional[Path]]:
         """
         Generate bootloader and partition table for ESP32.
@@ -433,6 +530,7 @@ class ESP32Orchestrator:
         Args:
             linker: Configured linker instance
             mcu: MCU identifier
+            verbose: Verbose output mode
 
         Returns:
             Tuple of (bootloader_bin, partitions_bin)
@@ -443,7 +541,7 @@ class ESP32Orchestrator:
         if not mcu.startswith("esp32"):
             return bootloader_bin, partitions_bin
 
-        if self.verbose:
+        if verbose:
             print("[11/12] Generating bootloader...")
         try:
             bootloader_bin = linker.generate_bootloader()
@@ -452,10 +550,10 @@ class ESP32Orchestrator:
             handle_keyboard_interrupt_properly(ke)
             raise  # Never reached, but satisfies type checker
         except Exception as e:
-            if self.verbose:
+            if verbose:
                 print(f"Warning: Could not generate bootloader: {e}")
 
-        if self.verbose:
+        if verbose:
             print("[12/12] Generating partition table...")
         try:
             partitions_bin = linker.generate_partition_table()
@@ -464,7 +562,7 @@ class ESP32Orchestrator:
             handle_keyboard_interrupt_properly(ke)
             raise  # Never reached, but satisfies type checker
         except Exception as e:
-            if self.verbose:
+            if verbose:
                 print(f"Warning: Could not generate partition table: {e}")
 
         return bootloader_bin, partitions_bin
@@ -500,7 +598,7 @@ class ESP32Orchestrator:
             print(f"  Partitions: {partitions_bin}")
         print()
 
-    def _error_result(self, start_time: float, message: str) -> ESP32BuildResult:
+    def _error_result(self, start_time: float, message: str) -> BuildResultESP32:
         """
         Create an error result.
 
@@ -509,9 +607,9 @@ class ESP32Orchestrator:
             message: Error message
 
         Returns:
-            ESP32BuildResult indicating failure
+            BuildResultESP32 indicating failure
         """
-        return ESP32BuildResult(
+        return BuildResultESP32(
             success=False,
             firmware_bin=None,
             firmware_elf=None,

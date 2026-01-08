@@ -5,19 +5,20 @@ This module handles downloading and managing Arduino core platforms
 """
 
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from .cache import Cache
 from .downloader import PackageDownloader
+from .package import Framework, PackageError
 
 
-class ArduinoCoreError(Exception):
+class ArduinoCoreError(PackageError):
     """Raised when Arduino core operations fail."""
 
     pass
 
 
-class ArduinoCore:
+class ArduinoCore(Framework):
     """Manages Arduino core platform packages."""
 
     # Arduino AVR core version
@@ -37,6 +38,17 @@ class ArduinoCore:
         self.cache = cache
         self.downloader = PackageDownloader()
         self._core_path: Optional[Path] = None
+
+    def ensure_package(self) -> Path:
+        """Ensure Arduino AVR core is available.
+
+        Returns:
+            Path to Arduino AVR core directory
+
+        Raises:
+            ArduinoCoreError: If core cannot be obtained
+        """
+        return self.ensure_avr_core()
 
     def ensure_avr_core(self, force_download: bool = False) -> Path:
         """Ensure Arduino AVR core is available.
@@ -132,6 +144,39 @@ class ArduinoCore:
             raise  # Never reached, but satisfies type checker
         except Exception as e:
             raise ArduinoCoreError(f"Failed to setup Arduino core: {e}")
+
+    def is_installed(self) -> bool:
+        """Check if Arduino core is already installed.
+
+        Returns:
+            True if core is installed and valid
+        """
+        if not self._core_path:
+            # Check cache
+            core_path = self.cache.get_platform_path(self.AVR_URL, self.AVR_VERSION)
+            if core_path.exists():
+                return self._verify_core(core_path)
+            return False
+        return self._verify_core(self._core_path)
+
+    def get_package_info(self) -> Dict[str, Any]:
+        """Get information about the installed core.
+
+        Returns:
+            Dictionary with core information
+        """
+        info = {
+            "version": self.AVR_VERSION,
+            "url": self.AVR_URL,
+            "installed": self.is_installed(),
+        }
+
+        if self._core_path:
+            info["path"] = str(self._core_path)
+            info["cores_dir"] = str(self.get_cores_dir())
+            info["variants_dir"] = str(self.get_variants_dir())
+
+        return info
 
     def _verify_core(self, core_path: Path) -> bool:
         """Comprehensively verify Arduino core is complete.
@@ -252,6 +297,64 @@ class ArduinoCore:
             raise ArduinoCoreError("platform.txt not found in core")
 
         return platform_txt
+
+    def get_cores_dir(self) -> Path:
+        """Get path to cores directory.
+
+        Returns:
+            Path to cores directory
+
+        Raises:
+            ArduinoCoreError: If core not initialized
+        """
+        if not self._core_path:
+            raise ArduinoCoreError(
+                "Core not initialized. Call ensure_avr_core() first."
+            )
+
+        cores_dir = self._core_path / "cores"
+        if not cores_dir.exists():
+            raise ArduinoCoreError("cores directory not found")
+
+        return cores_dir
+
+    def get_variants_dir(self) -> Path:
+        """Get path to variants directory.
+
+        Returns:
+            Path to variants directory
+
+        Raises:
+            ArduinoCoreError: If core not initialized
+        """
+        if not self._core_path:
+            raise ArduinoCoreError(
+                "Core not initialized. Call ensure_avr_core() first."
+            )
+
+        variants_dir = self._core_path / "variants"
+        if not variants_dir.exists():
+            raise ArduinoCoreError("variants directory not found")
+
+        return variants_dir
+
+    def get_libraries_dir(self) -> Path:
+        """Get path to built-in libraries directory.
+
+        Returns:
+            Path to libraries directory
+
+        Raises:
+            ArduinoCoreError: If core not initialized
+        """
+        if not self._core_path:
+            raise ArduinoCoreError(
+                "Core not initialized. Call ensure_avr_core() first."
+            )
+
+        # Arduino AVR core doesn't have a libraries directory, return a non-existent path
+        libraries_dir = self._core_path / "libraries"
+        return libraries_dir
 
     def get_core_dir(self) -> Path:
         """Get path to cores/arduino directory.

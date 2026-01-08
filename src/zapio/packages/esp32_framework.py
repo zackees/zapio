@@ -53,16 +53,17 @@ from typing import Any, Dict, List, Optional
 from .archive_utils import ArchiveExtractor, URLVersionExtractor
 from .cache import Cache
 from .downloader import DownloadError, ExtractionError
+from .package import Framework, PackageError
 from .sdk_utils import SDKPathResolver
 
 
-class ESP32FrameworkError(Exception):
+class FrameworkErrorESP32(PackageError):
     """Raised when ESP32 framework operations fail."""
 
     pass
 
 
-class ESP32Framework:
+class FrameworkESP32(Framework):
     """Manages ESP32 framework download, extraction, and access.
 
     This class handles the Arduino-ESP32 framework which includes:
@@ -103,6 +104,17 @@ class ESP32Framework:
         combined_url = f"{framework_url}|{libs_url}"
         self.framework_path = cache.get_platform_path(combined_url, self.version)
 
+    def ensure_package(self) -> Path:
+        """Ensure framework is downloaded and extracted.
+
+        Returns:
+            Path to the extracted framework directory
+
+        Raises:
+            FrameworkErrorESP32: If download or extraction fails
+        """
+        return self.ensure_framework()
+
     def ensure_framework(self) -> Path:
         """Ensure framework is downloaded and extracted.
 
@@ -110,7 +122,7 @@ class ESP32Framework:
             Path to the extracted framework directory
 
         Raises:
-            ESP32FrameworkError: If download or extraction fails
+            FrameworkErrorESP32: If download or extraction fails
         """
         if self.is_installed():
             if self.show_progress:
@@ -145,14 +157,14 @@ class ESP32Framework:
             return self.framework_path
 
         except (DownloadError, ExtractionError) as e:
-            raise ESP32FrameworkError(f"Failed to install ESP32 framework: {e}")
+            raise FrameworkErrorESP32(f"Failed to install ESP32 framework: {e}")
         except KeyboardInterrupt as ke:
             from zapio.interrupt_utils import handle_keyboard_interrupt_properly
 
             handle_keyboard_interrupt_properly(ke)
             raise  # Never reached, but satisfies type checker
         except Exception as e:
-            raise ESP32FrameworkError(f"Unexpected error installing framework: {e}")
+            raise FrameworkErrorESP32(f"Unexpected error installing framework: {e}")
 
     def is_installed(self) -> bool:
         """Check if framework is already installed.
@@ -190,11 +202,11 @@ class ESP32Framework:
             Path to the core directory
 
         Raises:
-            ESP32FrameworkError: If core directory doesn't exist
+            FrameworkErrorESP32: If core directory doesn't exist
         """
         core_path = self.get_cores_dir() / core_name
         if not core_path.exists():
-            raise ESP32FrameworkError(f"Core '{core_name}' not found at {core_path}")
+            raise FrameworkErrorESP32(f"Core '{core_name}' not found at {core_path}")
         return core_path
 
     def get_variants_dir(self) -> Path:
@@ -215,11 +227,11 @@ class ESP32Framework:
             Path to the variant directory
 
         Raises:
-            ESP32FrameworkError: If variant directory doesn't exist
+            FrameworkErrorESP32: If variant directory doesn't exist
         """
         variant_path = self.get_variants_dir() / variant_name
         if not variant_path.exists():
-            raise ESP32FrameworkError(
+            raise FrameworkErrorESP32(
                 f"Variant '{variant_name}' not found at {variant_path}"
             )
         return variant_path
@@ -324,12 +336,12 @@ class ESP32Framework:
             Dictionary containing package metadata
 
         Raises:
-            ESP32FrameworkError: If package.json doesn't exist or is invalid
+            FrameworkErrorESP32: If package.json doesn't exist or is invalid
         """
         package_json_path = self.framework_path / "package.json"
 
         if not package_json_path.exists():
-            raise ESP32FrameworkError(
+            raise FrameworkErrorESP32(
                 f"package.json not found at {package_json_path}. "
                 + "Ensure framework is downloaded first."
             )
@@ -338,14 +350,14 @@ class ESP32Framework:
             with open(package_json_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except json.JSONDecodeError as e:
-            raise ESP32FrameworkError(f"Failed to parse package.json: {e}")
+            raise FrameworkErrorESP32(f"Failed to parse package.json: {e}")
         except KeyboardInterrupt as ke:
             from zapio.interrupt_utils import handle_keyboard_interrupt_properly
 
             handle_keyboard_interrupt_properly(ke)
             raise  # Never reached, but satisfies type checker
         except Exception as e:
-            raise ESP32FrameworkError(f"Failed to read package.json: {e}")
+            raise FrameworkErrorESP32(f"Failed to read package.json: {e}")
 
     def list_variants(self) -> List[str]:
         """List all available board variants.
@@ -398,6 +410,14 @@ class ESP32Framework:
         # Remove duplicates
         return list(set(sources))
 
+    def get_package_info(self) -> Dict[str, Any]:
+        """Get information about the installed framework.
+
+        Returns:
+            Dictionary with framework information
+        """
+        return self.get_framework_info()
+
     def get_framework_info(self) -> Dict[str, Any]:
         """Get information about the installed framework.
 
@@ -426,7 +446,7 @@ class ESP32Framework:
                 package_json = self.get_package_json()
                 info["package_version"] = package_json.get("version")
                 info["package_name"] = package_json.get("name")
-            except ESP32FrameworkError:
+            except FrameworkErrorESP32:
                 pass
 
         return info

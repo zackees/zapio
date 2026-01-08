@@ -14,18 +14,19 @@ import subprocess
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Union
 
-from ..packages.esp32_platform import ESP32Platform
-from ..packages.esp32_toolchain import ESP32Toolchain
-from ..packages.esp32_framework import ESP32Framework
+from ..packages.esp32_platform import PlatformESP32
+from ..packages.esp32_toolchain import ToolchainESP32
+from ..packages.esp32_framework import FrameworkESP32
 from .binary_generator import BinaryGenerator
+from .compiler import Linker, LinkerError
 
 
-class ConfigurableLinkerError(Exception):
+class ConfigurableLinkerError(LinkerError):
     """Raised when configurable linking operations fail."""
     pass
 
 
-class ConfigurableLinker:
+class ConfigurableLinker(Linker):
     """Generic linker driven by platform configuration.
 
     This class handles:
@@ -38,9 +39,9 @@ class ConfigurableLinker:
 
     def __init__(
         self,
-        platform: ESP32Platform,
-        toolchain: ESP32Toolchain,
-        framework: ESP32Framework,
+        platform: PlatformESP32,
+        toolchain: ToolchainESP32,
+        framework: FrameworkESP32,
         board_id: str,
         build_dir: Path,
         platform_config: Optional[Union[Dict, Path]] = None,
