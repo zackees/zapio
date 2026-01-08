@@ -77,6 +77,9 @@ class ConfigurableCompiler(ICompiler):
         # Get variant name
         self.variant = self.board_config.get("build", {}).get("variant", "")
 
+        # Get core name from board config (defaults to "arduino" if not specified)
+        self.core = self.board_config.get("build", {}).get("core", "arduino")
+
         # Load platform configuration
         if platform_config is None:
             # Try to load from default location
@@ -133,7 +136,7 @@ class ConfigurableCompiler(ICompiler):
         includes = []
 
         # Core include path
-        core_dir = self.framework.get_core_dir("esp32")
+        core_dir = self.framework.get_core_dir(self.core)
         includes.append(core_dir)
 
         # Variant include path
@@ -147,16 +150,18 @@ class ConfigurableCompiler(ICompiler):
         except Exception:
             pass
 
-        # SDK include paths
-        sdk_includes = self.framework.get_sdk_includes(self.mcu)
-        includes.extend(sdk_includes)
+        # SDK include paths (ESP32-specific)
+        if hasattr(self.framework, 'get_sdk_includes'):
+            sdk_includes = self.framework.get_sdk_includes(self.mcu)
+            includes.extend(sdk_includes)
 
-        # Add flash mode specific sdkconfig.h path
-        flash_mode = self.board_config.get("build", {}).get("flash_mode", "qio")
-        sdk_dir = self.framework.get_sdk_dir()
-        flash_config_dir = sdk_dir / self.mcu / f"{flash_mode}_qspi" / "include"
-        if flash_config_dir.exists():
-            includes.append(flash_config_dir)
+        # Add flash mode specific sdkconfig.h path (ESP32-specific)
+        if hasattr(self.framework, 'get_sdk_dir'):
+            flash_mode = self.board_config.get("build", {}).get("flash_mode", "qio")
+            sdk_dir = self.framework.get_sdk_dir()
+            flash_config_dir = sdk_dir / self.mcu / f"{flash_mode}_qspi" / "include"
+            if flash_config_dir.exists():
+                includes.append(flash_config_dir)
 
         self._include_paths_cache = includes
         return includes
@@ -276,7 +281,7 @@ class ConfigurableCompiler(ICompiler):
         object_files = []
 
         # Get core sources
-        core_sources = self.framework.get_core_sources("esp32")
+        core_sources = self.framework.get_core_sources(self.core)
 
         if self.show_progress:
             print(f"Compiling {len(core_sources)} core source files...")

@@ -113,32 +113,41 @@ class ConfigurableLinker(ILinker):
         if self._linker_scripts_cache is not None:
             return self._linker_scripts_cache
 
-        # Get linker script directory
-        sdk_ld_dir = self.framework.get_sdk_dir() / self.mcu / "ld"
-
-        if not sdk_ld_dir.exists():
-            raise ConfigurableLinkerError(f"Linker script directory not found: {sdk_ld_dir}")
-
-        # Get linker scripts from config
-        config_scripts = self.config.get('linker_scripts', [])
-
         scripts = []
-        for script_name in config_scripts:
-            script_path = sdk_ld_dir / script_name
-            if script_path.exists():
-                scripts.append(script_path)
-            # For ESP32-S3, sections.ld may be in flash mode subdirectories
-            elif self.mcu == "esp32s3" and script_name == "sections.ld":
-                flash_mode = self.board_config.get("build", {}).get("flash_mode", "qio")
-                psram_mode = self.board_config.get("build", {}).get("psram_mode", "qspi")
-                flash_dir = sdk_ld_dir.parent / f"{flash_mode}_{psram_mode}"
-                alt_script_path = flash_dir / script_name
-                if alt_script_path.exists():
-                    scripts.append(alt_script_path)
+
+        # Check if framework has a get_linker_script method (Teensy-style)
+        if hasattr(self.framework, 'get_linker_script'):
+            linker_script = self.framework.get_linker_script(self.board_id)
+            if linker_script and linker_script.exists():
+                scripts.append(linker_script)
+
+        # Otherwise use ESP32-style SDK directory approach
+        elif hasattr(self.framework, 'get_sdk_dir'):
+            # Get linker script directory
+            sdk_ld_dir = self.framework.get_sdk_dir() / self.mcu / "ld"
+
+            if not sdk_ld_dir.exists():
+                raise ConfigurableLinkerError(f"Linker script directory not found: {sdk_ld_dir}")
+
+            # Get linker scripts from config
+            config_scripts = self.config.get('linker_scripts', [])
+
+            for script_name in config_scripts:
+                script_path = sdk_ld_dir / script_name
+                if script_path.exists():
+                    scripts.append(script_path)
+                # For ESP32-S3, sections.ld may be in flash mode subdirectories
+                elif self.mcu == "esp32s3" and script_name == "sections.ld":
+                    flash_mode = self.board_config.get("build", {}).get("flash_mode", "qio")
+                    psram_mode = self.board_config.get("build", {}).get("psram_mode", "qspi")
+                    flash_dir = sdk_ld_dir.parent / f"{flash_mode}_{psram_mode}"
+                    alt_script_path = flash_dir / script_name
+                    if alt_script_path.exists():
+                        scripts.append(alt_script_path)
 
         if not scripts:
             raise ConfigurableLinkerError(
-                f"No linker scripts found for {self.mcu} in {sdk_ld_dir}"
+                f"No linker scripts found for {self.mcu}"
             )
 
         self._linker_scripts_cache = scripts
@@ -153,11 +162,17 @@ class ConfigurableLinker(ILinker):
         if self._sdk_libs_cache is not None:
             return self._sdk_libs_cache
 
-        # Get flash mode from board configuration
-        flash_mode = self.board_config.get("build", {}).get("flash_mode", "qio")
+        # Only ESP32 frameworks have SDK libraries
+        if hasattr(self.framework, 'get_sdk_libs'):
+            # Get flash mode from board configuration
+            flash_mode = self.board_config.get("build", {}).get("flash_mode", "qio")
 
-        # Get SDK libraries
-        self._sdk_libs_cache = self.framework.get_sdk_libs(self.mcu, flash_mode)
+            # Get SDK libraries
+            self._sdk_libs_cache = self.framework.get_sdk_libs(self.mcu, flash_mode)
+        else:
+            # No SDK libraries for this framework (e.g., Teensy)
+            self._sdk_libs_cache = []
+
         return self._sdk_libs_cache
 
     def get_linker_flags(self) -> List[str]:
@@ -236,23 +251,28 @@ class ConfigurableLinker(ILinker):
         cmd = [str(linker_path)]
         cmd.extend(linker_flags)
 
-        # Add linker script directory to library search path
-        ld_dir = self.framework.get_sdk_dir() / self.mcu / "ld"
-        cmd.append(f"-L{ld_dir}")
+        # Add linker script directory to library search path (ESP32-specific)
+        if hasattr(self.framework, 'get_sdk_dir'):
+            ld_dir = self.framework.get_sdk_dir() / self.mcu / "ld"
+            cmd.append(f"-L{ld_dir}")
 
-        # For ESP32-S3, also add flash mode directory to search path
-        if self.mcu == "esp32s3":
-            flash_mode = self.board_config.get("build", {}).get("flash_mode", "qio")
-            psram_mode = self.board_config.get("build", {}).get("psram_mode", "qspi")
-            flash_dir = self.framework.get_sdk_dir() / self.mcu / f"{flash_mode}_{psram_mode}"
-            if flash_dir.exists():
-                cmd.append(f"-L{flash_dir}")
+            # For ESP32-S3, also add flash mode directory to search path
+            if self.mcu == "esp32s3":
+                flash_mode = self.board_config.get("build", {}).get("flash_mode", "qio")
+                psram_mode = self.board_config.get("build", {}).get("psram_mode", "qspi")
+                flash_dir = self.framework.get_sdk_dir() / self.mcu / f"{flash_mode}_{psram_mode}"
+                if flash_dir.exists():
+                    cmd.append(f"-L{flash_dir}")
 
-        # Add linker scripts
-        for script in linker_scripts:
-            if script.parent == ld_dir or (self.mcu == "esp32s3" and script.parent.name.endswith(("_qspi", "_opi"))):
-                cmd.append(f"-T{script.name}")
-            else:
+            # Add linker scripts with ESP32-specific path handling
+            for script in linker_scripts:
+                if script.parent == ld_dir or (self.mcu == "esp32s3" and script.parent.name.endswith(("_qspi", "_opi"))):
+                    cmd.append(f"-T{script.name}")
+                else:
+                    cmd.append(f"-T{script}")
+        else:
+            # For non-ESP32 platforms (e.g., Teensy), use absolute paths
+            for script in linker_scripts:
                 cmd.append(f"-T{script}")
 
         # Add object files
@@ -261,10 +281,11 @@ class ConfigurableLinker(ILinker):
         # Add core archive
         cmd.append(str(core_archive))
 
-        # Add SDK library directory to search path
-        sdk_lib_dir = self.framework.get_sdk_dir() / self.mcu / "lib"
-        if sdk_lib_dir.exists():
-            cmd.append(f"-L{sdk_lib_dir}")
+        # Add SDK library directory to search path (ESP32-specific)
+        if hasattr(self.framework, 'get_sdk_dir'):
+            sdk_lib_dir = self.framework.get_sdk_dir() / self.mcu / "lib"
+            if sdk_lib_dir.exists():
+                cmd.append(f"-L{sdk_lib_dir}")
 
         # Group libraries to resolve circular dependencies
         cmd.append("-Wl,--start-group")
@@ -353,6 +374,130 @@ class ConfigurableLinker(ILinker):
         except Exception as e:
             raise ConfigurableLinkerError(f"Binary generation failed: {e}")
 
+    def generate_hex(self, elf_path: Path, output_hex: Optional[Path] = None) -> Path:
+        """Generate firmware.hex from firmware.elf using objcopy.
+
+        Args:
+            elf_path: Path to firmware.elf
+            output_hex: Optional path for output .hex file
+
+        Returns:
+            Path to generated firmware.hex
+
+        Raises:
+            ConfigurableLinkerError: If conversion fails
+        """
+        if not elf_path.exists():
+            raise ConfigurableLinkerError(f"ELF file not found: {elf_path}")
+
+        # Generate output path if not provided
+        if output_hex is None:
+            output_hex = self.build_dir / "firmware.hex"
+
+        # Get objcopy tool from toolchain
+        objcopy_path = self.toolchain.get_objcopy_path()
+        if objcopy_path is None or not objcopy_path.exists():
+            raise ConfigurableLinkerError(
+                f"objcopy not found: {objcopy_path}. " +
+                "Ensure toolchain is installed."
+            )
+
+        # Build objcopy command: convert ELF to Intel HEX format
+        cmd = [
+            str(objcopy_path),
+            "-O", "ihex",
+            "-R", ".eeprom",
+            str(elf_path),
+            str(output_hex)
+        ]
+
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+
+            if result.returncode != 0:
+                error_msg = "HEX generation failed\n"
+                error_msg += f"stderr: {result.stderr}\n"
+                error_msg += f"stdout: {result.stdout}"
+                raise ConfigurableLinkerError(error_msg)
+
+            if not output_hex.exists():
+                raise ConfigurableLinkerError(f"firmware.hex was not created: {output_hex}")
+
+            if self.show_progress:
+                size = output_hex.stat().st_size
+                print(f"✓ Created firmware.hex: {size:,} bytes")
+
+            return output_hex
+
+        except subprocess.TimeoutExpired:
+            raise ConfigurableLinkerError("HEX generation timeout")
+        except KeyboardInterrupt as ke:
+            from zapio.interrupt_utils import handle_keyboard_interrupt_properly
+            handle_keyboard_interrupt_properly(ke)
+            raise  # Never reached, but satisfies type checker
+        except Exception as e:
+            raise ConfigurableLinkerError(f"Failed to generate HEX: {e}")
+
+    def get_size_info(self, elf_path: Path):
+        """Get firmware size information from ELF file.
+
+        Args:
+            elf_path: Path to firmware.elf
+
+        Returns:
+            SizeInfo object with size data or None if failed
+
+        Raises:
+            ConfigurableLinkerError: If size calculation fails
+        """
+        from .linker import SizeInfo
+
+        if not elf_path.exists():
+            raise ConfigurableLinkerError(f"ELF file not found: {elf_path}")
+
+        # Get arm-none-eabi-size or appropriate size tool from toolchain
+        # Check if toolchain has a get_size_path method
+        if hasattr(self.toolchain, 'get_size_path'):
+            size_tool = self.toolchain.get_size_path()
+        else:
+            # Fall back to looking for size tool in toolchain bin directory
+            toolchain_bin = self.toolchain.get_gcc_path().parent
+            size_tool = toolchain_bin / "arm-none-eabi-size"
+            if not size_tool.exists():
+                size_tool = toolchain_bin / "arm-none-eabi-size.exe"
+
+        if not size_tool.exists():
+            # If we can't find the size tool, return None (non-fatal)
+            return None
+
+        try:
+            result = subprocess.run(
+                [str(size_tool), str(elf_path)],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            if result.returncode == 0:
+                # Get max flash and RAM from board config
+                max_flash = self.board_config.get("upload", {}).get("maximum_size")
+                max_ram = self.board_config.get("upload", {}).get("maximum_ram_size")
+
+                return SizeInfo.parse(
+                    result.stdout,
+                    max_flash=max_flash,
+                    max_ram=max_ram
+                )
+            else:
+                return None
+
+        except Exception:
+            return None
 
     def generate_bootloader(self, output_bin: Optional[Path] = None) -> Path:
         """Generate bootloader.bin from bootloader ELF file.

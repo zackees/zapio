@@ -108,6 +108,14 @@ class BoardConfig:
             "core": "esp32",
             "variant": "esp32c6",
         },
+        "teensy41": {
+            "name": "Teensy 4.1",
+            "mcu": "imxrt1062",
+            "f_cpu": "600000000L",
+            "board": "TEENSY41",
+            "core": "teensy4",
+            "variant": "teensy41",
+        },
     }
 
     def __init__(
@@ -152,12 +160,14 @@ class BoardConfig:
         Detect platform type from MCU.
 
         Returns:
-            Platform identifier: "avr" or "esp32"
+            Platform identifier: "avr", "esp32", or "teensy"
         """
         if self.mcu.startswith("atmega"):
             return "avr"
         elif self.mcu.startswith("esp32"):
             return "esp32"
+        elif self.mcu.startswith("imxrt"):
+            return "teensy"
         else:
             # Default to AVR for unknown
             return "avr"
