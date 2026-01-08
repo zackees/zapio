@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from ..packages import Cache
 from ..packages.platform_teensy import PlatformTeensy
 from ..packages.toolchain_teensy import ToolchainTeensy
-from ..packages.framework_teensy import FrameworkTeensy
+from ..packages.library_manager import LibraryManager, LibraryError
 from .configurable_compiler import ConfigurableCompiler
 from .configurable_linker import ConfigurableLinker
 from .linker import SizeInfo
@@ -214,7 +214,7 @@ class OrchestratorTeensy(IBuildOrchestrator):
 
             # Handle library dependencies (if any)
             library_archives, library_include_paths = self._process_libraries(
-                env_config, build_dir, compiler, platform.toolchain, verbose
+                env_config, build_dir, compiler, platform.toolchain, board_config, verbose
             )
 
             # Add library include paths to compiler
@@ -317,6 +317,7 @@ class OrchestratorTeensy(IBuildOrchestrator):
         build_dir: Path,
         compiler: ConfigurableCompiler,
         toolchain: ToolchainTeensy,
+        board_config,
         verbose: bool
     ) -> tuple[List[Path], List[Path]]:
         """
@@ -327,6 +328,7 @@ class OrchestratorTeensy(IBuildOrchestrator):
             build_dir: Build directory
             compiler: Configured compiler instance
             toolchain: Teensy toolchain instance
+            board_config: Board configuration instance
             verbose: Verbose output mode
 
         Returns:
@@ -351,11 +353,56 @@ class OrchestratorTeensy(IBuildOrchestrator):
         if not lib_specs:
             return library_archives, library_include_paths
 
-        # For now, return empty lists - library support can be added later
-        # This is a placeholder for future library management
-        if verbose:
-            print(f"      Warning: Library dependencies not yet fully supported for Teensy")
-            print(f"      Skipping {len(lib_specs)} library dependencies")
+        try:
+            # Initialize library manager
+            library_manager = LibraryManager(build_dir, mode="release")
+
+            # Prepare compilation parameters
+            lib_defines = []
+            defines_dict = board_config.get_defines()
+            for key, value in defines_dict.items():
+                if value:
+                    lib_defines.append(f"{key}={value}")
+                else:
+                    lib_defines.append(key)
+
+            # Get include paths from compiler configuration
+            lib_includes = compiler.get_include_paths()
+
+            # Get compiler path from toolchain (use C++ compiler for libraries)
+            compiler_path = toolchain.get_gxx_path()
+            if compiler_path is None:
+                raise LibraryError("C++ compiler not found in toolchain")
+
+            if verbose:
+                print(f"      Found {len(lib_specs)} library dependencies")
+                print(f"      Compiler path: {compiler_path}")
+
+            # Ensure all libraries are downloaded and compiled
+            libraries = library_manager.ensure_libraries(
+                lib_deps=lib_specs,
+                compiler_path=compiler_path,
+                mcu=board_config.mcu,
+                f_cpu=board_config.f_cpu,
+                defines=lib_defines,
+                include_paths=lib_includes,
+                extra_flags=[],
+                show_progress=verbose
+            )
+
+            # Get library artifacts
+            library_include_paths = library_manager.get_library_include_paths()
+            library_archives = library_manager.get_library_objects()
+
+            if verbose:
+                print(f"      Compiled {len(libraries)} libraries")
+                print(f"      Library objects: {len(library_archives)}")
+
+        except LibraryError as e:
+            print(f"      Error processing libraries: {e}")
+            # Continue build without libraries
+            library_archives = []
+            library_include_paths = []
 
         return library_archives, library_include_paths
 

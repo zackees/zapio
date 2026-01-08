@@ -151,8 +151,16 @@ class BuildOrchestratorAVR(IBuildOrchestrator):
                 return self._build_esp32(
                     project_dir, env_name, board_id, env_config, clean, verbose_mode, start_time, build_flags
                 )
+            elif board_config.platform == "teensy":
+                if verbose_mode:
+                    print(f"      Platform: {board_config.platform} (using native Teensy build)")
+                # Get build flags from platformio.ini
+                build_flags = config.get_build_flags(env_name)
+                return self._build_teensy(
+                    project_dir, env_name, board_id, board_config, clean, verbose_mode, start_time, build_flags
+                )
             elif board_config.platform != "avr":
-                # Only AVR and ESP32 are supported natively
+                # Only AVR, ESP32, and Teensy are supported natively
                 return BuildResult(
                     success=False,
                     hex_path=None,
@@ -160,7 +168,7 @@ class BuildOrchestratorAVR(IBuildOrchestrator):
                     size_info=None,
                     build_time=time.time() - start_time,
                     message=f"Platform '{board_config.platform}' is not supported. " +
-                           "Zapio currently supports 'avr' and 'esp32' platforms natively."
+                           "Zapio currently supports 'avr', 'esp32', and 'teensy' platforms natively."
                 )
 
             # Phase 3: Ensure toolchain
@@ -388,6 +396,56 @@ class BuildOrchestratorAVR(IBuildOrchestrator):
             clean=clean,
             verbose=verbose
         )
+        return result
+
+    def _build_teensy(
+        self,
+        project_dir: Path,
+        env_name: str,
+        board_id: str,
+        board_config: BoardConfig,
+        clean: bool,
+        verbose: bool,
+        start_time: float,
+        build_flags: List[str]
+    ) -> BuildResult:
+        """
+        Build Teensy project using native build system.
+
+        Args:
+            project_dir: Project directory
+            env_name: Environment name
+            board_id: Board ID (e.g., teensy41)
+            board_config: Board configuration
+            clean: Whether to clean before build
+            verbose: Verbose output
+            start_time: Build start time
+            build_flags: User build flags from platformio.ini
+
+        Returns:
+            BuildResult
+        """
+        if self.cache is None:
+            return BuildResult(
+                success=False,
+                hex_path=None,
+                elf_path=None,
+                size_info=None,
+                build_time=time.time() - start_time,
+                message="Cache not initialized"
+            )
+
+        # Delegate to OrchestratorTeensy for native Teensy build
+        from .orchestrator_teensy import OrchestratorTeensy
+
+        teensy_orchestrator = OrchestratorTeensy(self.cache, verbose)
+        result = teensy_orchestrator.build(
+            project_dir=project_dir,
+            env_name=env_name,
+            clean=clean,
+            verbose=verbose
+        )
+
         return result
 
     def _parse_config(self, project_dir: Path) -> PlatformIOConfig:
