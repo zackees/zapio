@@ -33,8 +33,8 @@ Toolchain Structure (after extraction):
     │   └── include/
 
 Supported Architectures:
-    - RISC-V: ESP32-C3, ESP32-C6, ESP32-H2, ESP32-C2, ESP32-C5
-    - Xtensa: ESP32, ESP32-S2, ESP32-S3, ESP32-P4
+    - RISC-V: ESP32-C3, ESP32-C6, ESP32-H2, ESP32-C2, ESP32-C5, ESP32-P4
+    - Xtensa: ESP32, ESP32-S2, ESP32-S3
 """
 
 from pathlib import Path
@@ -61,8 +61,8 @@ class ToolchainESP32(IToolchain):
     """Manages ESP32 toolchain download, extraction, and access.
 
     This class handles downloading and managing GCC toolchains for ESP32 family:
-    - RISC-V GCC for ESP32-C3, C6, H2, C2, C5 chips
-    - Xtensa GCC for ESP32, S2, S3, P4 chips
+    - RISC-V GCC for ESP32-C3, C6, H2, C2, C5, P4 chips
+    - Xtensa GCC for ESP32, S2, S3 chips
     """
 
     # Toolchain name mappings
@@ -76,12 +76,12 @@ class ToolchainESP32(IToolchain):
         "esp32": "xtensa-esp-elf",
         "esp32s2": "xtensa-esp-elf",
         "esp32s3": "xtensa-esp-elf",
-        "esp32p4": "xtensa-esp-elf",
         "esp32c2": "riscv32-esp",
         "esp32c3": "riscv32-esp",
         "esp32c5": "riscv32-esp",
         "esp32c6": "riscv32-esp",
         "esp32h2": "riscv32-esp",
+        "esp32p4": "riscv32-esp",
     }
 
     def __init__(

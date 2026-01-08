@@ -269,13 +269,20 @@ class PlatformESP32(IPackage):
             packages["framework-arduinoespressif32-libs"] = libs_url
 
         # Determine which toolchain is needed based on MCU architecture
-        if board_mcu in ["esp32c3", "esp32c6", "esp32h2", "esp32c2", "esp32c5"]:
+        if board_mcu in [
+            "esp32c3",
+            "esp32c6",
+            "esp32h2",
+            "esp32c2",
+            "esp32c5",
+            "esp32p4",
+        ]:
             # RISC-V based ESP32s
             toolchain_url = self.get_package_url("toolchain-riscv32-esp")
             if toolchain_url:
                 packages["toolchain-riscv32-esp"] = toolchain_url
         else:
-            # Xtensa based ESP32s (original ESP32, S2, S3, P4)
+            # Xtensa based ESP32s (original ESP32, S2, S3)
             toolchain_url = self.get_package_url("toolchain-xtensa-esp-elf")
             if toolchain_url:
                 packages["toolchain-xtensa-esp-elf"] = toolchain_url
