@@ -53,8 +53,21 @@ ignore_missing_imports = true
 disable_error_code = ["import-untyped"]
 
 [tool.pyright]
+# Basic type checking (current default)
+typeCheckingMode = "basic"
 reportMissingImports = "none"
 extraPaths = ["src"]
+
+# Enable useful warnings that catch real bugs
+reportUnusedImport = "warning"
+reportUnusedVariable = "warning"
+reportUnusedClass = "warning"
+reportUnusedFunction = "warning"
+reportUnnecessaryTypeIgnoreComment = "warning"
+reportUnnecessaryIsInstance = "warning"
+reportUnnecessaryComparison = "warning"
+reportUnnecessaryCast = "warning"
+reportImplicitStringConcatenation = "warning"
 
 [project.scripts]
 zap = "zapio.cli:main"

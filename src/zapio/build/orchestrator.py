@@ -176,8 +176,8 @@ class BuildOrchestrator:
                     elf_path=None,
                     size_info=None,
                     build_time=time.time() - start_time,
-                    message=f"Platform '{board_config.platform}' is not supported. "
-                           f"Zapio currently supports 'avr' and 'esp32' platforms natively."
+                    message=f"Platform '{board_config.platform}' is not supported. " +
+                           "Zapio currently supports 'avr' and 'esp32' platforms natively."
                 )
 
             # Phase 3: Ensure toolchain
@@ -729,7 +729,7 @@ class BuildOrchestrator:
 
         if not ini_path.exists():
             raise BuildOrchestratorError(
-                f"platformio.ini not found in {project_dir}\n"
+                f"platformio.ini not found in {project_dir}\n" +
                 "Make sure you're in a valid project directory."
             )
 
@@ -798,8 +798,8 @@ class BuildOrchestrator:
 
             # If not ESP32, re-raise original error
             raise BuildOrchestratorError(
-                f"Unknown board: {board_id}\n"
-                "Supported AVR boards: uno, mega, nano, leonardo\n"
+                f"Unknown board: {board_id}\n" +
+                "Supported AVR boards: uno, mega, nano, leonardo\n" +
                 "For ESP32 boards, ensure platform URL contains 'espressif32'"
             )
 

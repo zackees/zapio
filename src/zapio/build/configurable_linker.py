@@ -78,7 +78,7 @@ class ConfigurableLinker:
                     self.config = json.load(f)
             else:
                 raise ConfigurableLinkerError(
-                    f"No platform configuration found for {self.mcu}. "
+                    f"No platform configuration found for {self.mcu}. " +
                     f"Expected: {config_path}"
                 )
         elif isinstance(platform_config, dict):
@@ -203,7 +203,7 @@ class ConfigurableLinker:
         linker_path = self.toolchain.get_gxx_path()
         if linker_path is None or not linker_path.exists():
             raise ConfigurableLinkerError(
-                f"Linker not found: {linker_path}. "
+                f"Linker not found: {linker_path}. " +
                 "Ensure toolchain is installed."
             )
 
@@ -445,7 +445,7 @@ class ConfigurableLinker:
         objcopy_path = self.toolchain.get_objcopy_path()
         if objcopy_path is None or not objcopy_path.exists():
             raise ConfigurableLinkerError(
-                f"objcopy not found: {objcopy_path}. "
+                f"objcopy not found: {objcopy_path}. " +
                 "Ensure toolchain is installed."
             )
 

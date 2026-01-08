@@ -549,7 +549,7 @@ class ESP32Framework:
         if not package_json_path.exists():
             raise ESP32FrameworkError(
                 f"package.json not found at {package_json_path}. "
-                "Ensure framework is downloaded first."
+                + "Ensure framework is downloaded first."
             )
 
         try:

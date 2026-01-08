@@ -83,7 +83,7 @@ class ConfigurableCompiler:
                     self.config = json.load(f)
             else:
                 raise ConfigurableCompilerError(
-                    f"No platform configuration found for {self.mcu}. "
+                    f"No platform configuration found for {self.mcu}. " +
                     f"Expected: {config_path}"
                 )
         elif isinstance(platform_config, dict):
@@ -291,7 +291,7 @@ class ConfigurableCompiler:
 
         if compiler_path is None or not compiler_path.exists():
             raise ConfigurableCompilerError(
-                f"Compiler not found: {compiler_path}. "
+                f"Compiler not found: {compiler_path}. " +
                 "Ensure toolchain is installed."
             )
 
@@ -429,7 +429,7 @@ class ConfigurableCompiler:
         ar_path = self.toolchain.get_ar_path()
         if ar_path is None or not ar_path.exists():
             raise ConfigurableCompilerError(
-                f"Archiver not found: {ar_path}. "
+                f"Archiver not found: {ar_path}. " +
                 "Ensure toolchain is installed."
             )
 

@@ -8,7 +8,6 @@ This script tests the ESP32Framework class by:
 4. Listing cores, variants, and libraries
 """
 
-from pathlib import Path
 from src.zapio.packages.cache import Cache
 from src.zapio.packages.esp32_platform import ESP32Platform
 from src.zapio.packages.esp32_framework import ESP32Framework

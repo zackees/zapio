@@ -101,7 +101,7 @@ class PlatformIOConfig:
             available = ", ".join(self.get_environments())
             raise PlatformIOConfigError(
                 f"Environment '{env_name}' not found. "
-                f"Available environments: {available or 'none'}"
+                + f"Available environments: {available or 'none'}"
             )
 
         # Collect all key-value pairs from the environment section
@@ -109,10 +109,7 @@ class PlatformIOConfig:
         for key in self.config[section]:
             value = self.config[section][key]
             # Handle multi-line values (like lib_deps)
-            if value is not None:
-                env_config[key] = value.strip()
-            else:
-                env_config[key] = ""
+            env_config[key] = value.strip()
 
         # Also check if there's a base [env] section to inherit from
         if "env" in self.config:
@@ -125,7 +122,7 @@ class PlatformIOConfig:
         if missing_fields:
             raise PlatformIOConfigError(
                 f"Environment '{env_name}' is missing required fields: "
-                f"{', '.join(sorted(missing_fields))}"
+                + f"{', '.join(sorted(missing_fields))}"
             )
 
         return env_config

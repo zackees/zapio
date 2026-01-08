@@ -258,7 +258,7 @@ class ESP32Toolchain:
                 if current_platform not in version_info:
                     raise ESP32ToolchainError(
                         f"Platform {current_platform} not supported for {self.toolchain_type}. "
-                        f"Available platforms: {list(version_info.keys())}"
+                        + f"Available platforms: {list(version_info.keys())}"
                     )
 
                 platform_info = version_info[current_platform]

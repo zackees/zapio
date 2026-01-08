@@ -162,7 +162,7 @@ class Toolchain:
             else:
                 raise ToolchainError(
                     f"No toolchain package for {plat}/{arch}. "
-                    f"Available: {list(platform_packages.keys())}"
+                    + f"Available: {list(platform_packages.keys())}"
                 )
 
         package_name = platform_packages[arch]

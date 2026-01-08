@@ -197,7 +197,7 @@ class ESP32Platform:
         if not platform_json_path.exists():
             raise ESP32PlatformError(
                 f"platform.json not found at {platform_json_path}. "
-                "Ensure platform is downloaded first."
+                + "Ensure platform is downloaded first."
             )
 
         try:
@@ -289,7 +289,7 @@ class ESP32Platform:
 
         if not board_json_path.exists():
             raise ESP32PlatformError(
-                f"Board definition not found: {board_id} " f"at {board_json_path}"
+                f"Board definition not found: {board_id} " + f"at {board_json_path}"
             )
 
         try:

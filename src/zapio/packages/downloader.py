@@ -16,8 +16,8 @@ if TYPE_CHECKING:
     from tqdm import tqdm
 
 try:
-    import requests  # type: ignore[import-untyped]
-    from tqdm import tqdm  # type: ignore[import-untyped]
+    import requests
+    from tqdm import tqdm
 
     REQUESTS_AVAILABLE = True
 except ImportError:
@@ -58,7 +58,7 @@ class PackageDownloader:
         if not REQUESTS_AVAILABLE:
             raise ImportError(
                 "requests and tqdm are required for downloading. "
-                "Install with: pip install requests tqdm"
+                + "Install with: pip install requests tqdm"
             )
 
     def download(
@@ -131,8 +131,8 @@ class PackageDownloader:
                     temp_file.unlink()
                     raise ChecksumError(
                         f"Checksum mismatch for {url}\n"
-                        f"Expected: {checksum}\n"
-                        f"Got: {actual_checksum}"
+                        + f"Expected: {checksum}\n"
+                        + f"Got: {actual_checksum}"
                     )
 
             # Move temp file to final destination
@@ -273,8 +273,8 @@ class PackageDownloader:
         if actual.lower() != expected.lower():
             raise ChecksumError(
                 f"Checksum mismatch for {file_path}\n"
-                f"Expected: {expected}\n"
-                f"Got: {actual}"
+                + f"Expected: {expected}\n"
+                + f"Got: {actual}"
             )
 
         return True

@@ -88,7 +88,7 @@ class SerialMonitor:
             if not port:
                 print(
                     "Error: No serial port specified and auto-detection failed. "
-                    "Use --port to specify a port."
+                    + "Use --port to specify a port."
                 )
                 return 1
 

@@ -266,7 +266,7 @@ class BoardConfig:
         if board_id not in cls.BOARD_DEFAULTS:
             raise BoardConfigError(
                 f"Unknown board: {board_id}. "
-                f"Supported boards: {', '.join(cls.BOARD_DEFAULTS.keys())}"
+                + f"Supported boards: {', '.join(cls.BOARD_DEFAULTS.keys())}"
             )
 
         board_data = cls.BOARD_DEFAULTS[board_id].copy()

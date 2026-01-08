@@ -158,7 +158,7 @@ class Deployer:
             if not port:
                 raise DeploymentError(
                     "No serial port specified and auto-detection failed. "
-                    "Use --port to specify a port."
+                    + "Use --port to specify a port."
                 )
 
         if self.verbose:
