@@ -18,8 +18,7 @@ from zapio.cli_utils import (
     MonitorFlagParser,
     PathValidator,
 )
-from zapio.deploy import ESP32Deployer
-from zapio.deploy.monitor import SerialMonitor
+from zapio.daemon import client as daemon_client
 
 
 @dataclass
@@ -171,84 +170,27 @@ def deploy_command(args: DeployArgs) -> None:
             args.project_dir, args.environment
         )
 
-        # If clean flag is set, build first
-        if args.clean:
-            if args.verbose:
-                print(f"Building project: {args.project_dir}")
-                print(f"Environment: {env_name}")
-                print()
-            else:
-                print(f"Building environment: {env_name}...")
+        # Parse monitor flags if provided
+        monitor_after = args.monitor is not None
+        monitor_timeout = None
+        if monitor_after and args.monitor is not None:
+            flags = MonitorFlagParser.parse_monitor_flags(args.monitor)
+            monitor_timeout = flags.timeout
 
-            orchestrator = BuildOrchestratorAVR(verbose=args.verbose)
-            build_result = orchestrator.build(
-                project_dir=args.project_dir,
-                env_name=env_name,
-                clean=True,
-                verbose=args.verbose,
-            )
-
-            if not build_result.success:
-                ErrorFormatter.print_error("Build failed!", build_result.message)
-                sys.exit(1)
-
-            if args.verbose:
-                ErrorFormatter.print_success("Build successful!")
-
-        # Create deployer
-        deployer = ESP32Deployer(verbose=args.verbose)
-
-        # Show deployment start message
-        if args.verbose:
-            print(f"Deploying project: {args.project_dir}")
-            print(f"Environment: {env_name}")
-            if args.port:
-                print(f"Port: {args.port}")
-            print()
-        else:
-            print(f"Deploying environment: {env_name}...")
-
-        # Perform deployment
-        result = deployer.deploy(
+        # Use daemon for concurrent deploy management
+        success = daemon_client.request_deploy(
             project_dir=args.project_dir,
-            env_name=env_name,
+            environment=env_name,
             port=args.port,
+            clean_build=args.clean,
+            monitor_after=monitor_after,
+            monitor_timeout=monitor_timeout,
+            timeout=1800,  # 30 minute timeout for deploy
         )
 
-        # Check result
-        if result.success:
-            ErrorFormatter.print_success("Deployment successful!")
-            if result.port:
-                print(f"Port: {result.port}")
-                deployed_port = result.port
-            else:
-                deployed_port = args.port
-
-            # If monitor flag is set, start monitoring
-            if args.monitor:
-                print()
-                print("Starting monitor...")
-                print()
-
-                # Parse monitor flags
-                flags = MonitorFlagParser.parse_monitor_flags(args.monitor)
-
-                # Start monitor
-                mon = SerialMonitor(verbose=args.verbose)
-                exit_code = mon.monitor(
-                    project_dir=args.project_dir,
-                    env_name=env_name,
-                    port=deployed_port,
-                    baud=flags.baud,
-                    timeout=flags.timeout,
-                    halt_on_error=flags.halt_on_error,
-                    halt_on_success=flags.halt_on_success,
-                )
-                sys.exit(exit_code)
-
+        if success:
             sys.exit(0)
         else:
-            ErrorFormatter.print_error("Deployment failed!", result.message)
             sys.exit(1)
 
     except FileNotFoundError as e:
@@ -272,26 +214,26 @@ def monitor_command(args: MonitorArgs) -> None:
         zap monitor --halt-on-success "TEST PASSED"  # Exit on success
     """
     try:
-        # Create monitor
-        mon = SerialMonitor(verbose=args.verbose)
-
         # Determine environment name
         env_name = EnvironmentDetector.detect_environment(
             args.project_dir, args.environment
         )
 
-        # Run monitor
-        exit_code = mon.monitor(
+        # Use daemon for concurrent monitor management
+        success = daemon_client.request_monitor(
             project_dir=args.project_dir,
-            env_name=env_name,
+            environment=env_name,
             port=args.port,
-            baud=args.baud,
-            timeout=args.timeout,
+            baud_rate=args.baud,
             halt_on_error=args.halt_on_error,
             halt_on_success=args.halt_on_success,
+            timeout=args.timeout,
         )
 
-        sys.exit(exit_code)
+        if success:
+            sys.exit(0)
+        else:
+            sys.exit(1)
 
     except FileNotFoundError as e:
         ErrorFormatter.handle_file_not_found(e)
@@ -301,6 +243,69 @@ def monitor_command(args: MonitorArgs) -> None:
         handle_keyboard_interrupt_properly(ke)
     except Exception as e:
         ErrorFormatter.handle_unexpected_error(e, args.verbose)
+
+
+def daemon_command(action: str) -> None:
+    """Manage the Zapio daemon.
+
+    Examples:
+        zap daemon status    # Show daemon status
+        zap daemon stop      # Stop the daemon
+        zap daemon restart   # Restart the daemon
+    """
+    try:
+        if action == "status":
+            # Get daemon status
+            status = daemon_client.get_daemon_status()
+
+            if status["running"]:
+                print("✅ Daemon is running")
+                print(f"   PID: {status.get('pid', 'unknown')}")
+
+                if "current_status" in status:
+                    current = status["current_status"]
+                    print(f"   State: {current.get('state', 'unknown')}")
+                    print(f"   Message: {current.get('message', 'N/A')}")
+
+                    if current.get("operation_in_progress"):
+                        print("   🔄 Operation in progress:")
+                        print(f"      Environment: {current.get('environment', 'N/A')}")
+                        print(f"      Project: {current.get('project_dir', 'N/A')}")
+            else:
+                print("❌ Daemon is not running")
+
+        elif action == "stop":
+            # Stop daemon
+            if daemon_client.stop_daemon():
+                sys.exit(0)
+            else:
+                ErrorFormatter.print_error("Failed to stop daemon", "")
+                sys.exit(1)
+
+        elif action == "restart":
+            # Restart daemon
+            print("Restarting daemon...")
+            if daemon_client.is_daemon_running():
+                if not daemon_client.stop_daemon():
+                    ErrorFormatter.print_error("Failed to stop daemon", "")
+                    sys.exit(1)
+
+            # Start fresh daemon
+            if daemon_client.ensure_daemon_running():
+                print("✅ Daemon restarted successfully")
+                sys.exit(0)
+            else:
+                ErrorFormatter.print_error("Failed to restart daemon", "")
+                sys.exit(1)
+        else:
+            ErrorFormatter.print_error(f"Unknown daemon action: {action}", "")
+            print("Valid actions: status, stop, restart")
+            sys.exit(1)
+
+    except KeyboardInterrupt:
+        ErrorFormatter.handle_keyboard_interrupt()
+    except Exception as e:
+        ErrorFormatter.handle_unexpected_error(e, verbose=False)
 
 
 def main() -> None:
@@ -448,6 +453,17 @@ def main() -> None:
         help="Show verbose output",
     )
 
+    # Daemon command
+    daemon_parser = subparsers.add_parser(
+        "daemon",
+        help="Manage the Zapio daemon",
+    )
+    daemon_parser.add_argument(
+        "action",
+        choices=["status", "stop", "restart"],
+        help="Daemon action to perform",
+    )
+
     # Parse arguments
     parsed_args = parser.parse_args()
 
@@ -491,6 +507,8 @@ def main() -> None:
             verbose=parsed_args.verbose,
         )
         monitor_command(monitor_args)
+    elif parsed_args.command == "daemon":
+        daemon_command(parsed_args.action)
 
 
 if __name__ == "__main__":

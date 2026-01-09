@@ -1,0 +1,34 @@
+"""
+Zapio Daemon - Concurrent Deploy and Monitor Management
+
+This package provides a singleton daemon for managing concurrent deploy and monitor
+operations with proper locking and process tree tracking.
+"""
+
+from zapio.daemon.client import (
+    ensure_daemon_running,
+    get_daemon_status,
+    request_deploy,
+    request_monitor,
+    stop_daemon,
+)
+from zapio.daemon.messages import (
+    DaemonState,
+    DaemonStatus,
+    DeployRequest,
+    MonitorRequest,
+    OperationType,
+)
+
+__all__ = [
+    "DaemonState",
+    "DaemonStatus",
+    "DeployRequest",
+    "MonitorRequest",
+    "OperationType",
+    "ensure_daemon_running",
+    "get_daemon_status",
+    "request_deploy",
+    "request_monitor",
+    "stop_daemon",
+]
