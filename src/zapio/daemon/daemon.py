@@ -282,13 +282,25 @@ def process_deploy_request(
 
     # Acquire project lock (prevent concurrent builds of same project)
     project_lock = get_project_lock(project_dir)
+
+    # Try to acquire lock without blocking first
     if not project_lock.acquire(blocking=False):
-        logging.warning(f"Project {project_dir} is already being built")
+        # Lock is held - inform user we're waiting
+        logging.info(f"Project {project_dir} is busy, checking lock status")
         update_status(
-            DaemonState.FAILED,
-            f"Project {project_dir} is already being built by another process",
+            DaemonState.DEPLOYING,
+            f"Waiting for project {project_dir} (another build is in progress)",
+            environment=environment,
+            project_dir=project_dir,
+            request_id=request_id,
+            caller_pid=caller_pid,
+            caller_cwd=caller_cwd,
         )
-        return False
+
+        # Now block and wait for the lock
+        logging.info(f"Waiting for project lock for {project_dir}")
+        project_lock.acquire(blocking=True)
+        logging.info(f"Acquired project lock for {project_dir}")
 
     try:
         # Acquire port lock if port specified
@@ -296,12 +308,23 @@ def process_deploy_request(
         if port:
             port_lock = get_port_lock(port)
             if not port_lock.acquire(blocking=False):
-                logging.warning(f"Port {port} is already in use")
+                # Port is in use - inform user we're waiting
+                logging.info(f"Port {port} is busy, checking lock status")
                 update_status(
-                    DaemonState.FAILED,
-                    f"Port {port} is already in use by another operation",
+                    DaemonState.DEPLOYING,
+                    f"Waiting for port {port} (in use by another operation)",
+                    environment=environment,
+                    project_dir=project_dir,
+                    request_id=request_id,
+                    caller_pid=caller_pid,
+                    caller_cwd=caller_cwd,
+                    port=port,
                 )
-                return False
+
+                # Now block and wait for the lock
+                logging.info(f"Waiting for port lock for {port}")
+                port_lock.acquire(blocking=True)
+                logging.info(f"Acquired port lock for {port}")
 
         try:
             # Mark operation in progress
@@ -494,12 +517,23 @@ def process_monitor_request(
 
     port_lock = get_port_lock(port)
     if not port_lock.acquire(blocking=False):
-        logging.warning(f"Port {port} is already in use")
+        # Port is in use - inform user we're waiting
+        logging.info(f"Port {port} is busy, checking lock status")
         update_status(
-            DaemonState.FAILED,
-            f"Port {port} is already in use by another operation",
+            DaemonState.MONITORING,
+            f"Waiting for port {port} (in use by another operation)",
+            environment=environment,
+            project_dir=project_dir,
+            request_id=request_id,
+            caller_pid=caller_pid,
+            caller_cwd=caller_cwd,
+            port=port,
         )
-        return False
+
+        # Now block and wait for the lock
+        logging.info(f"Waiting for port lock for {port}")
+        port_lock.acquire(blocking=True)
+        logging.info(f"Acquired port lock for {port}")
 
     try:
         # Mark operation in progress

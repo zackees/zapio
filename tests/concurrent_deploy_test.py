@@ -55,6 +55,7 @@ def check_prerequisites() -> Tuple[bool, List[str]]:
     # Check for serial ports
     try:
         import serial.tools.list_ports
+
         ports = list(serial.tools.list_ports.comports())
         if len(ports) < 2:
             errors.append(
@@ -170,8 +171,12 @@ def run_concurrent_deploys() -> bool:
     print("=" * 80)
     print("TEST RESULTS")
     print("=" * 80)
-    print(f"Deploy 1: {'PASS' if proc1_success else 'FAIL'} (exit code: {proc1.returncode})")
-    print(f"Deploy 2: {'PASS' if proc2_success else 'FAIL'} (exit code: {proc2.returncode})")
+    print(
+        f"Deploy 1: {'PASS' if proc1_success else 'FAIL'} (exit code: {proc1.returncode})"
+    )
+    print(
+        f"Deploy 2: {'PASS' if proc2_success else 'FAIL'} (exit code: {proc2.returncode})"
+    )
     print(f"Total time: {elapsed:.1f}s")
     print()
 
@@ -258,6 +263,7 @@ def main() -> int:
         print()
         print(f"❌ Unexpected error: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 
