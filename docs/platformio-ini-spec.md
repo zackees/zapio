@@ -47,7 +47,7 @@ Specifies the hardware platform. For Arduino Uno:
 platform = atmelavr
 ```
 
-For Zapio with URL-based approach (future):
+For fbuild with URL-based approach (future):
 ```ini
 platform_url = https://github.com/arduino/ArduinoCore-avr/archive/refs/tags/1.8.6.tar.gz
 ```

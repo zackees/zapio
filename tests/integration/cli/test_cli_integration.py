@@ -9,7 +9,7 @@ import unittest
 
 import pytest
 
-COMMAND = "zap"
+COMMAND = "fbuild"
 
 
 @pytest.mark.integration

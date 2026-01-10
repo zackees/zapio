@@ -2,13 +2,13 @@
 
 ## Overview
 
-Zapio uses a configuration-driven build system where platform-specific compiler and linker settings are defined in JSON configuration files rather than hard-coded in Python classes. This approach enables easy support for new platforms and MCU variants without modifying the core build system.
+fbuild uses a configuration-driven build system where platform-specific compiler and linker settings are defined in JSON configuration files rather than hard-coded in Python classes. This approach enables easy support for new platforms and MCU variants without modifying the core build system.
 
 ## File Location
 
 Platform configuration files are stored in:
 ```
-src/zapio/platform_configs/{mcu}.json
+src/fbuild/platform_configs/{mcu}.json
 ```
 
 Where `{mcu}` is the MCU identifier from the board's JSON configuration (e.g., `esp32`, `esp32c3`, `esp32c6`, `esp32s3`).
@@ -198,7 +198,7 @@ The `defines` array contains preprocessor definitions in two formats:
 
 2. **Extract PlatformIO config**: Look for `pioarduino-build.py` in the platform SDK:
    ```
-   .zap/cache/platforms/*/tools/sdk/{mcu}/pioarduino-build.py
+   .fbuild/cache/platforms/*/tools/sdk/{mcu}/pioarduino-build.py
    ```
 
 3. **Map PlatformIO to JSON**:
@@ -212,15 +212,15 @@ The `defines` array contains preprocessor definitions in two formats:
 
 5. **Test the configuration**: Run a build and verify compilation and linking succeed
 
-6. **Save the file**: Save as `src/zapio/platform_configs/{mcu}.json`
+6. **Save the file**: Save as `src/fbuild/platform_configs/{mcu}.json`
 
 ## Usage in Code
 
 The configuration files are automatically loaded by `ConfigurableCompiler` and `ConfigurableLinker`:
 
 ```python
-from zapio.build.configurable_compiler import ConfigurableCompiler
-from zapio.build.configurable_linker import ConfigurableLinker
+from fbuild.build.configurable_compiler import ConfigurableCompiler
+from fbuild.build.configurable_linker import ConfigurableLinker
 
 # Compiler automatically loads config based on MCU
 compiler = ConfigurableCompiler(
@@ -266,8 +266,8 @@ compiler = ConfigurableCompiler(..., platform_config=config_dict)
 
 Old approach (ESP32Compiler, ESP32Linker):
 ```python
-from zapio.build.esp32_compiler import ESP32Compiler
-from zapio.build.esp32_linker import ESP32Linker
+from fbuild.build.esp32_compiler import ESP32Compiler
+from fbuild.build.esp32_linker import ESP32Linker
 
 compiler = ESP32Compiler(...)  # Hard-coded ESP32 logic
 linker = ESP32Linker(...)      # Hard-coded ESP32 logic
@@ -275,8 +275,8 @@ linker = ESP32Linker(...)      # Hard-coded ESP32 logic
 
 New approach (ConfigurableCompiler, ConfigurableLinker):
 ```python
-from zapio.build.configurable_compiler import ConfigurableCompiler
-from zapio.build.configurable_linker import ConfigurableLinker
+from fbuild.build.configurable_compiler import ConfigurableCompiler
+from fbuild.build.configurable_linker import ConfigurableLinker
 
 compiler = ConfigurableCompiler(...)  # Loads config from JSON
 linker = ConfigurableLinker(...)      # Loads config from JSON

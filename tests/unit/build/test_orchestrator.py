@@ -14,13 +14,13 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from zapio.build.orchestrator_avr import (
+from fbuild.build.orchestrator_avr import (
     BuildOrchestratorAVR,
     BuildOrchestratorError
 )
-from zapio.config import BoardConfig
-from zapio.packages import Cache
-from zapio.build import SourceCollection
+from fbuild.config import BoardConfig
+from fbuild.packages import Cache
+from fbuild.build import SourceCollection
 
 
 # Test fixtures
@@ -116,7 +116,7 @@ def mock_linker():
     linker = Mock()
 
     # Mock link result
-    from zapio.build.linker import LinkResult, SizeInfo
+    from fbuild.build.linker import LinkResult, SizeInfo
 
     size_info = SizeInfo(
         text=1000,
@@ -262,7 +262,7 @@ class TestLoadBoardConfig:
 class TestEnsureToolchain:
     """Test toolchain management."""
 
-    @patch('zapio.build.orchestrator.Toolchain')
+    @patch('fbuild.build.orchestrator.Toolchain')
     def test_ensure_toolchain_success(self, mock_toolchain_class, mock_cache):
         """Test successful toolchain setup."""
         mock_toolchain = Mock()
@@ -275,7 +275,7 @@ class TestEnsureToolchain:
         assert toolchain == mock_toolchain
         mock_toolchain.ensure_toolchain.assert_called_once()
 
-    @patch('zapio.build.orchestrator.Toolchain')
+    @patch('fbuild.build.orchestrator.Toolchain')
     def test_ensure_toolchain_failure(self, mock_toolchain_class, mock_cache):
         """Test toolchain setup failure."""
         mock_toolchain = Mock()
@@ -293,7 +293,7 @@ class TestEnsureToolchain:
 class TestEnsureArduinoCore:
     """Test Arduino core management."""
 
-    @patch('zapio.build.orchestrator.ArduinoCore')
+    @patch('fbuild.build.orchestrator.ArduinoCore')
     def test_ensure_arduino_core_success(self, mock_core_class, mock_cache):
         """Test successful core setup."""
         mock_core = Mock()
@@ -308,7 +308,7 @@ class TestEnsureArduinoCore:
         assert core == mock_core
         mock_core.ensure_avr_core.assert_called_once()
 
-    @patch('zapio.build.orchestrator.ArduinoCore')
+    @patch('fbuild.build.orchestrator.ArduinoCore')
     def test_ensure_arduino_core_failure(self, mock_core_class, mock_cache):
         """Test core setup failure."""
         mock_core = Mock()
@@ -326,7 +326,7 @@ class TestEnsureArduinoCore:
 class TestScanSources:
     """Test source scanning."""
 
-    @patch('zapio.build.orchestrator.SourceScanner')
+    @patch('fbuild.build.orchestrator.SourceScanner')
     def test_scan_sources(self, mock_scanner_class, tmp_path, mock_board_config):
         """Test source scanning."""
         mock_scanner = Mock()
@@ -363,7 +363,7 @@ class TestCreateCompiler:
         orchestrator = BuildOrchestratorAVR()
         core_path = Path('/arduino/avr')
 
-        with patch('zapio.build.orchestrator.Compiler') as mock_compiler_class:
+        with patch('fbuild.build.orchestrator.Compiler') as mock_compiler_class:
             mock_compiler = Mock()
             mock_compiler_class.return_value = mock_compiler
 
@@ -389,7 +389,7 @@ class TestCreateLinker:
         """Test linker creation with correct parameters."""
         orchestrator = BuildOrchestratorAVR()
 
-        with patch('zapio.build.orchestrator.Linker') as mock_linker_class:
+        with patch('fbuild.build.orchestrator.Linker') as mock_linker_class:
             mock_linker = Mock()
             mock_linker_class.return_value = mock_linker
 
@@ -476,12 +476,12 @@ class TestCompileSources:
 class TestBuildFullProcess:
     """Test complete build process."""
 
-    @patch('zapio.build.orchestrator.PlatformIOConfig')
-    @patch('zapio.build.orchestrator.Toolchain')
-    @patch('zapio.build.orchestrator.ArduinoCore')
-    @patch('zapio.build.orchestrator.SourceScanner')
-    @patch('zapio.build.orchestrator.Compiler')
-    @patch('zapio.build.orchestrator.Linker')
+    @patch('fbuild.build.orchestrator.PlatformIOConfig')
+    @patch('fbuild.build.orchestrator.Toolchain')
+    @patch('fbuild.build.orchestrator.ArduinoCore')
+    @patch('fbuild.build.orchestrator.SourceScanner')
+    @patch('fbuild.build.orchestrator.Compiler')
+    @patch('fbuild.build.orchestrator.Linker')
     def test_build_success(
         self,
         mock_linker_class,
@@ -494,7 +494,7 @@ class TestBuildFullProcess:
     ):
         """Test successful complete build."""
         # Setup mocks
-        from zapio.build.linker import LinkResult, SizeInfo
+        from fbuild.build.linker import LinkResult, SizeInfo
 
         # PlatformIO config
         mock_config = Mock()
@@ -588,7 +588,7 @@ framework = arduino
         size_info = result.size_info  # Type narrowing for pyright
         assert size_info.total_flash == 1050
 
-    @patch('zapio.build.orchestrator.PlatformIOConfig')
+    @patch('fbuild.build.orchestrator.PlatformIOConfig')
     def test_build_no_platformio_ini(self, mock_config_class, tmp_path):
         """Test build with missing platformio.ini."""
         mock_config_class.side_effect = Exception('File not found')
@@ -599,7 +599,7 @@ framework = arduino
         assert result.success is False
         assert 'platformio.ini not found' in result.message
 
-    @patch('zapio.build.orchestrator.PlatformIOConfig')
+    @patch('fbuild.build.orchestrator.PlatformIOConfig')
     def test_build_no_default_env(self, mock_config_class, tmp_path):
         """Test build with no default environment."""
         mock_config = Mock()
@@ -623,7 +623,7 @@ class TestPrintSizeInfo:
 
     def test_print_size_info(self, capsys):
         """Test size info output."""
-        from zapio.build.linker import SizeInfo
+        from fbuild.build.linker import SizeInfo
 
         size_info = SizeInfo(
             text=1000,

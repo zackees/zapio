@@ -1,0 +1,186 @@
+"""Compilation Flag Builder.
+
+This module handles parsing and building compilation flags from platform
+configuration files.
+
+Design:
+    - Parses flag strings with proper handling of quoted values
+    - Builds flags from configuration dictionaries
+    - Adds platform-specific defines (Arduino, ESP32, etc.)
+    - Merges user build flags from platformio.ini
+"""
+
+import shlex
+from typing import List, Dict, Any, Optional
+
+
+class FlagBuilderError(Exception):
+    """Raised when flag building operations fail."""
+    pass
+
+
+class FlagBuilder:
+    """Builds compilation flags from configuration.
+
+    This class handles:
+    - Parsing flag strings with quoted values
+    - Building flags from platform config
+    - Adding platform-specific defines
+    - Merging user build flags
+    """
+
+    def __init__(
+        self,
+        config: Dict[str, Any],
+        board_config: Dict[str, Any],
+        board_id: str,
+        variant: str,
+        user_build_flags: Optional[List[str]] = None
+    ):
+        """Initialize flag builder.
+
+        Args:
+            config: Platform configuration dictionary
+            board_config: Board-specific configuration
+            board_id: Board identifier (e.g., "esp32-c6-devkitm-1")
+            variant: Board variant name
+            user_build_flags: Build flags from platformio.ini
+        """
+        self.config = config
+        self.board_config = board_config
+        self.board_id = board_id
+        self.variant = variant
+        self.user_build_flags = user_build_flags or []
+
+    @staticmethod
+    def parse_flag_string(flag_string: str) -> List[str]:
+        """Parse a flag string that may contain quoted values.
+
+        Args:
+            flag_string: String containing compiler flags
+
+        Returns:
+            List of individual flags with quotes preserved
+
+        Example:
+            >>> FlagBuilder.parse_flag_string('-DFOO="bar baz" -DTEST')
+            ['-DFOO="bar baz"', '-DTEST']
+        """
+        try:
+            return shlex.split(flag_string)
+        except KeyboardInterrupt as ke:
+            from fbuild.interrupt_utils import handle_keyboard_interrupt_properly
+            handle_keyboard_interrupt_properly(ke)
+            raise  # Never reached, but satisfies type checker
+        except Exception:
+            return flag_string.split()
+
+    def build_flags(self) -> Dict[str, List[str]]:
+        """Build compilation flags from configuration.
+
+        Returns:
+            Dictionary with 'cflags', 'cxxflags', and 'common' keys
+        """
+        flags = {
+            'common': [],  # Common flags for both C and C++
+            'cflags': [],  # C-specific flags
+            'cxxflags': []  # C++-specific flags
+        }
+
+        # Get flags from config
+        config_flags = self.config.get('compiler_flags', {})
+
+        # Common flags (CCFLAGS in PlatformIO)
+        if 'common' in config_flags:
+            flags['common'] = config_flags['common'].copy()
+
+        # C-specific flags (CFLAGS in PlatformIO)
+        if 'c' in config_flags:
+            flags['cflags'] = config_flags['c'].copy()
+
+        # C++-specific flags (CXXFLAGS in PlatformIO)
+        if 'cxx' in config_flags:
+            flags['cxxflags'] = config_flags['cxx'].copy()
+
+        # Add defines from config (CPPDEFINES in PlatformIO)
+        defines = self.config.get('defines', [])
+        for define in defines:
+            if isinstance(define, str):
+                flags['common'].append(f'-D{define}')
+            elif isinstance(define, list) and len(define) == 2:
+                flags['common'].append(f'-D{define[0]}={define[1]}')
+
+        # Add Arduino-specific defines
+        self._add_arduino_defines(flags)
+
+        # Add board-specific extra flags if present
+        self._add_board_extra_flags(flags)
+
+        # Add user build flags from platformio.ini
+        self._add_user_flags(flags)
+
+        return flags
+
+    def _add_arduino_defines(self, flags: Dict[str, List[str]]) -> None:
+        """Add Arduino-specific defines to flags.
+
+        Args:
+            flags: Flags dictionary to update
+        """
+        build_config = self.board_config.get("build", {})
+        f_cpu = build_config.get("f_cpu", "160000000L")
+        board = build_config.get("board", self.board_id.upper().replace("-", "_"))
+
+        flags['common'].extend([
+            f'-DF_CPU={f_cpu}',
+            '-DARDUINO=10812',  # Arduino version
+            '-DESP32',  # ESP32 platform define
+            f'-DARDUINO_{board}',
+            '-DARDUINO_ARCH_ESP32',
+            f'-DARDUINO_BOARD="{board}"',
+            f'-DARDUINO_VARIANT="{self.variant}"',
+        ])
+
+    def _add_board_extra_flags(self, flags: Dict[str, List[str]]) -> None:
+        """Add board-specific extra flags.
+
+        Args:
+            flags: Flags dictionary to update
+        """
+        build_config = self.board_config.get("build", {})
+        extra_flags = build_config.get("extra_flags", "")
+
+        if extra_flags:
+            if isinstance(extra_flags, str):
+                flag_list = extra_flags.split()
+            else:
+                flag_list = extra_flags
+
+            for flag in flag_list:
+                if flag.startswith('-D'):
+                    flags['common'].append(flag)
+
+    def _add_user_flags(self, flags: Dict[str, List[str]]) -> None:
+        """Add user build flags from platformio.ini.
+
+        These override/extend board defaults.
+
+        Args:
+            flags: Flags dictionary to update
+        """
+        for flag in self.user_build_flags:
+            if flag.startswith('-D'):
+                # Add defines to common flags
+                flags['common'].append(flag)
+            # Could extend to handle other flag types if needed
+
+    def get_base_flags_for_library(self) -> List[str]:
+        """Get base compiler flags for library compilation.
+
+        Returns:
+            List of compiler flags suitable for library compilation
+        """
+        flags = self.build_flags()
+        base_flags = flags['common'].copy()
+        base_flags.extend(flags['cxxflags'])
+        return base_flags

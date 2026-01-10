@@ -47,7 +47,7 @@ ArduinoCore-avr/
 └── programmers.txt        # Programmer configurations
 ```
 
-## Critical Files for Zapio Build System
+## Critical Files for fbuild Build System
 
 ### 1. boards.txt
 Defines board-specific configurations. Each board has multiple properties:
@@ -314,11 +314,11 @@ avr-size -A build/firmware.elf
 | **Max Flash for Sketch** | 32,256 bytes |
 | **Max SRAM for Variables** | 2,048 bytes |
 
-## Implementation Strategy for Zapio
+## Implementation Strategy for fbuild
 
 ### Phase 1: Download & Cache
 1. Download ArduinoCore-avr-1.8.6.tar.gz from GitHub
-2. Extract to `.zap/cache/platforms/arduino-avr-1.8.6/`
+2. Extract to `.fbuild/cache/platforms/arduino-avr-1.8.6/`
 3. Parse `boards.txt` to extract Uno configuration
 4. Parse `platform.txt` for build recipes (future)
 

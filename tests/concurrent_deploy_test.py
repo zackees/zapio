@@ -10,7 +10,7 @@ Usage:
 
 Requirements:
     - 2x ESP32-C6 devices connected to different COM ports
-    - Zapio installed and in PATH
+    - fbuild installed and in PATH
     - Serial port permissions configured
 """
 
@@ -32,7 +32,7 @@ def check_prerequisites() -> Tuple[bool, List[str]]:
     # Check if zap command exists
     try:
         result = subprocess.run(
-            ["zap", "--help"],
+            ["fbuild", "--help"],
             capture_output=True,
             timeout=5,
         )
@@ -58,10 +58,7 @@ def check_prerequisites() -> Tuple[bool, List[str]]:
 
         ports = list(serial.tools.list_ports.comports())
         if len(ports) < 2:
-            errors.append(
-                f"Need at least 2 serial ports, found {len(ports)}. "
-                "Connect 2 ESP32-C6 devices."
-            )
+            errors.append(f"Need at least 2 serial ports, found {len(ports)}. " "Connect 2 ESP32-C6 devices.")
     except ImportError:
         errors.append("pyserial not installed: pip install pyserial")
 
@@ -83,7 +80,7 @@ def run_concurrent_deploys() -> bool:
     print("Starting Deploy 1 (esp32c6, timeout=4s)...")
     proc1 = subprocess.Popen(
         [
-            "zap",
+            "fbuild",
             "deploy",
             "tests/esp32c6",
             "-e",
@@ -102,7 +99,7 @@ def run_concurrent_deploys() -> bool:
     print("Starting Deploy 2 (esp32c6-2, timeout=7s)...")
     proc2 = subprocess.Popen(
         [
-            "zap",
+            "fbuild",
             "deploy",
             "tests/esp32c6-2",
             "-e",
@@ -171,12 +168,8 @@ def run_concurrent_deploys() -> bool:
     print("=" * 80)
     print("TEST RESULTS")
     print("=" * 80)
-    print(
-        f"Deploy 1: {'PASS' if proc1_success else 'FAIL'} (exit code: {proc1.returncode})"
-    )
-    print(
-        f"Deploy 2: {'PASS' if proc2_success else 'FAIL'} (exit code: {proc2.returncode})"
-    )
+    print(f"Deploy 1: {'PASS' if proc1_success else 'FAIL'} (exit code: {proc1.returncode})")
+    print(f"Deploy 2: {'PASS' if proc2_success else 'FAIL'} (exit code: {proc2.returncode})")
     print(f"Total time: {elapsed:.1f}s")
     print()
 
@@ -232,7 +225,7 @@ def run_concurrent_deploys() -> bool:
 def main() -> int:
     """Main entry point."""
     print()
-    print("Zapio Concurrent Deploy Test")
+    print("fbuild Concurrent Deploy Test")
     print()
 
     # Check prerequisites

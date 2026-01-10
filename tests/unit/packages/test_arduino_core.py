@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from zapio.packages.arduino_core import ArduinoCore, ArduinoCoreError
-from zapio.packages.cache import Cache
+from fbuild.packages.arduino_core import ArduinoCore, ArduinoCoreError
+from fbuild.packages.cache import Cache
 
 
 class TestArduinoCore:
@@ -178,9 +178,7 @@ class TestArduinoCore:
             core_path.mkdir()
             core._core_path = core_path
 
-            with pytest.raises(
-                ArduinoCoreError, match="cores/arduino directory not found"
-            ):
+            with pytest.raises(ArduinoCoreError, match="cores/arduino directory not found"):
                 core.get_core_dir()
 
     def test_get_variant_dir(self):
@@ -208,9 +206,7 @@ class TestArduinoCore:
             (core_path / "variants").mkdir(parents=True)
             core._core_path = core_path
 
-            with pytest.raises(
-                ArduinoCoreError, match="Variant 'nonexistent' not found"
-            ):
+            with pytest.raises(ArduinoCoreError, match="Variant 'nonexistent' not found"):
                 core.get_variant_dir("nonexistent")
 
     def test_get_core_sources(self):
@@ -279,9 +275,7 @@ class TestArduinoCore:
             core = ArduinoCore(cache)
 
             # Create a fake cached core with URL-based structure
-            core_path = cache.get_platform_path(
-                ArduinoCore.AVR_URL, ArduinoCore.AVR_VERSION
-            )
+            core_path = cache.get_platform_path(ArduinoCore.AVR_URL, ArduinoCore.AVR_VERSION)
 
             (core_path / "cores" / "arduino").mkdir(parents=True)
             (core_path / "variants" / "standard").mkdir(parents=True)
@@ -311,9 +305,7 @@ class TestArduinoCore:
             core = ArduinoCore(cache)
 
             # Create a fake cached core with URL-based structure
-            core_path = cache.get_platform_path(
-                ArduinoCore.AVR_URL, ArduinoCore.AVR_VERSION
-            )
+            core_path = cache.get_platform_path(ArduinoCore.AVR_URL, ArduinoCore.AVR_VERSION)
 
             (core_path / "cores" / "arduino").mkdir(parents=True)
             (core_path / "variants" / "standard").mkdir(parents=True)

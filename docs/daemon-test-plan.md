@@ -1,8 +1,8 @@
-# Zapio Daemon Test Plan
+# fbuild Daemon Test Plan
 
 ## Overview
 
-This document provides a comprehensive test plan for the Zapio daemon system, which enables concurrent deploy and monitor operations across multiple projects and devices.
+This document provides a comprehensive test plan for the fbuild daemon system, which enables concurrent deploy and monitor operations across multiple projects and devices.
 
 **Test Status:** ⏸️ Requires physical ESP32 hardware
 **Version:** 1.0
@@ -19,7 +19,7 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 
 ### Software Requirements
 - Python 3.10+
-- Zapio installed (`pip install -e .`)
+- fbuild installed (`pip install -e .`)
 - ESP32 toolchains (auto-downloaded)
 - Serial port access permissions
 
@@ -37,9 +37,9 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 **Objective:** Verify daemon starts automatically on first operation
 
 **Steps:**
-1. Ensure no daemon is running: `zap daemon status`
-2. Run: `zap build tests/esp32c6 -e esp32c6`
-3. Check daemon status: `zap daemon status`
+1. Ensure no daemon is running: `fbuild daemon status`
+2. Run: `fbuild build tests/esp32c6 -e esp32c6`
+3. Check daemon status: `fbuild daemon status`
 
 **Expected Results:**
 - Daemon starts transparently
@@ -48,7 +48,7 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 
 **Success Criteria:**
 - ✅ No manual daemon start required
-- ✅ Daemon PID file created in `~/.zapio/daemon.pid`
+- ✅ Daemon PID file created in `~/.fbuild/daemon.pid`
 - ✅ Build operation succeeds
 
 ---
@@ -57,8 +57,8 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 **Objective:** Verify daemon status reporting
 
 **Steps:**
-1. Start daemon (if not running): `zap build tests/esp32c6 -e esp32c6`
-2. Check status: `zap daemon status`
+1. Start daemon (if not running): `fbuild build tests/esp32c6 -e esp32c6`
+2. Check status: `fbuild daemon status`
 3. Note PID and uptime
 
 **Expected Results:**
@@ -77,9 +77,9 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 
 **Steps:**
 1. Ensure daemon is running
-2. Run: `zap daemon stop`
+2. Run: `fbuild daemon stop`
 3. Wait 2 seconds
-4. Check status: `zap daemon status`
+4. Check status: `fbuild daemon status`
 
 **Expected Results:**
 - Daemon stops gracefully
@@ -99,8 +99,8 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 **Steps:**
 1. Start daemon (if needed)
 2. Note original PID
-3. Run: `zap daemon restart`
-4. Check new status: `zap daemon status`
+3. Run: `fbuild daemon restart`
+4. Check new status: `fbuild daemon status`
 5. Compare PIDs
 
 **Expected Results:**
@@ -122,7 +122,7 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 
 **Steps:**
 1. Connect ESP32-C6 to USB port
-2. Run: `zap deploy tests/esp32c6 -e esp32c6`
+2. Run: `fbuild deploy tests/esp32c6 -e esp32c6`
 3. Wait for completion
 
 **Expected Results:**
@@ -142,7 +142,7 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 
 **Steps:**
 1. Connect ESP32-C6 to specific port (e.g., COM3)
-2. Run: `zap deploy tests/esp32c6 -e esp32c6 --port COM3`
+2. Run: `fbuild deploy tests/esp32c6 -e esp32c6 --port COM3`
 
 **Expected Results:**
 - Deploy uses specified port
@@ -160,7 +160,7 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 
 **Steps:**
 1. Connect ESP32-C6
-2. Run: `zap deploy tests/esp32c6 -e esp32c6 --monitor --timeout=10`
+2. Run: `fbuild deploy tests/esp32c6 -e esp32c6 --monitor --timeout=10`
 3. Observe serial output for 10 seconds
 
 **Expected Results:**
@@ -184,7 +184,7 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 
 **Steps:**
 1. Ensure device is running
-2. Run: `zap monitor tests/esp32c6 -e esp32c6 --timeout=5`
+2. Run: `fbuild monitor tests/esp32c6 -e esp32c6 --timeout=5`
 3. Observe output
 
 **Expected Results:**
@@ -204,7 +204,7 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 
 **Steps:**
 1. Deploy firmware that prints "TEST_SUCCESS"
-2. Run: `zap monitor tests/esp32c6 -e esp32c6 --halt-on-success --timeout=30`
+2. Run: `fbuild monitor tests/esp32c6 -e esp32c6 --halt-on-success --timeout=30`
 
 **Expected Results:**
 - Monitor starts
@@ -223,7 +223,7 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 
 **Steps:**
 1. Deploy firmware that prints "ERROR" or "FAILED"
-2. Run: `zap monitor tests/esp32c6 -e esp32c6 --halt-on-error --timeout=30`
+2. Run: `fbuild monitor tests/esp32c6 -e esp32c6 --halt-on-error --timeout=30`
 
 **Expected Results:**
 - Monitor starts
@@ -243,8 +243,8 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 **Objective:** Verify multiple projects can build simultaneously
 
 **Steps:**
-1. Terminal 1: `zap build tests/esp32c6 -e esp32c6`
-2. Terminal 2 (immediately): `zap build tests/esp32c6-2 -e esp32c6`
+1. Terminal 1: `fbuild build tests/esp32c6 -e esp32c6`
+2. Terminal 2 (immediately): `fbuild build tests/esp32c6-2 -e esp32c6`
 3. Wait for both to complete
 
 **Expected Results:**
@@ -263,8 +263,8 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 **Objective:** Verify project lock prevents concurrent builds of same project
 
 **Steps:**
-1. Terminal 1: `zap build tests/esp32c6 -e esp32c6`
-2. Terminal 2 (immediately): `zap build tests/esp32c6 -e esp32c6`
+1. Terminal 1: `fbuild build tests/esp32c6 -e esp32c6`
+2. Terminal 2 (immediately): `fbuild build tests/esp32c6 -e esp32c6`
 
 **Expected Results:**
 - First build proceeds
@@ -283,8 +283,8 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 **Steps:**
 1. Connect ESP32-C6 #1 to port COM3
 2. Connect ESP32-C6 #2 to port COM4
-3. Terminal 1: `zap deploy tests/esp32c6 -e esp32c6 --port COM3 --monitor --timeout=7`
-4. Terminal 2 (immediately): `zap deploy tests/esp32c6-2 -e esp32c6 --port COM4 --monitor --timeout=4`
+3. Terminal 1: `fbuild deploy tests/esp32c6 -e esp32c6 --port COM3 --monitor --timeout=7`
+4. Terminal 2 (immediately): `fbuild deploy tests/esp32c6-2 -e esp32c6 --port COM4 --monitor --timeout=4`
 5. Wait for both to complete
 
 **Expected Results:**
@@ -306,8 +306,8 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 **Steps:**
 1. Connect ESP32-C6 #1 to port COM3
 2. Connect ESP32-C6 #2 to port COM4
-3. Terminal 1: `zap monitor tests/esp32c6 -e esp32c6 --port COM3 --timeout=10`
-4. Terminal 2 (immediately): `zap monitor tests/esp32c6-2 -e esp32c6 --port COM4 --timeout=10`
+3. Terminal 1: `fbuild monitor tests/esp32c6 -e esp32c6 --port COM3 --timeout=10`
+4. Terminal 2 (immediately): `fbuild monitor tests/esp32c6-2 -e esp32c6 --port COM4 --timeout=10`
 
 **Expected Results:**
 - Both monitors run concurrently
@@ -326,8 +326,8 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 
 **Steps:**
 1. Connect ESP32-C6 to port COM3
-2. Terminal 1: `zap monitor tests/esp32c6 -e esp32c6 --port COM3 --timeout=20`
-3. Terminal 2 (immediately): `zap monitor tests/esp32c6-2 -e esp32c6 --port COM3 --timeout=10`
+2. Terminal 1: `fbuild monitor tests/esp32c6 -e esp32c6 --port COM3 --timeout=20`
+3. Terminal 2 (immediately): `fbuild monitor tests/esp32c6-2 -e esp32c6 --port COM3 --timeout=10`
 
 **Expected Results:**
 - First monitor proceeds
@@ -346,10 +346,10 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 **Objective:** Verify Ctrl-C can detach from ongoing deploy
 
 **Steps:**
-1. Run: `zap deploy tests/esp32c6 -e esp32c6 --monitor --timeout=30`
+1. Run: `fbuild deploy tests/esp32c6 -e esp32c6 --monitor --timeout=30`
 2. Press Ctrl-C after 5 seconds
 3. When prompted, type 'y' (keep running)
-4. Check daemon status: `zap daemon status`
+4. Check daemon status: `fbuild daemon status`
 
 **Expected Results:**
 - Prompt appears: "Keep operation running in background? (y/n)"
@@ -368,7 +368,7 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 **Objective:** Verify Ctrl-C can signal cancellation
 
 **Steps:**
-1. Run: `zap deploy tests/esp32c6 -e esp32c6 --monitor --timeout=30`
+1. Run: `fbuild deploy tests/esp32c6 -e esp32c6 --monitor --timeout=30`
 2. Press Ctrl-C after 5 seconds
 3. When prompted, type 'n' (cancel)
 4. Wait for operation to complete
@@ -391,7 +391,7 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 **Objective:** Verify Ctrl-C detach works during monitor
 
 **Steps:**
-1. Run: `zap monitor tests/esp32c6 -e esp32c6 --timeout=60`
+1. Run: `fbuild monitor tests/esp32c6 -e esp32c6 --timeout=60`
 2. Press Ctrl-C after 10 seconds
 3. Type 'y' (keep running)
 4. Check daemon status
@@ -412,7 +412,7 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 **Objective:** Verify rapid Ctrl-C doesn't cause issues
 
 **Steps:**
-1. Run: `zap deploy tests/esp32c6 -e esp32c6 --monitor --timeout=30`
+1. Run: `fbuild deploy tests/esp32c6 -e esp32c6 --monitor --timeout=30`
 2. Press Ctrl-C 3 times rapidly
 3. Respond to prompt
 
@@ -435,7 +435,7 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 
 **Steps:**
 1. Disconnect all ESP32 devices
-2. Run: `zap deploy tests/esp32c6 -e esp32c6`
+2. Run: `fbuild deploy tests/esp32c6 -e esp32c6`
 
 **Expected Results:**
 - Deploy fails with clear error message
@@ -453,7 +453,7 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 **Objective:** Verify handling of invalid port specification
 
 **Steps:**
-1. Run: `zap monitor tests/esp32c6 -e esp32c6 --port INVALID_PORT`
+1. Run: `fbuild monitor tests/esp32c6 -e esp32c6 --port INVALID_PORT`
 
 **Expected Results:**
 - Monitor fails with error
@@ -471,7 +471,7 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 
 **Steps:**
 1. Introduce syntax error in `tests/esp32c6/src/main.cpp`
-2. Run: `zap deploy tests/esp32c6 -e esp32c6`
+2. Run: `fbuild deploy tests/esp32c6 -e esp32c6`
 3. Fix syntax error
 
 **Expected Results:**
@@ -492,7 +492,7 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 **Steps:**
 1. Start daemon
 2. Kill daemon process forcefully (SIGKILL)
-3. Run: `zap build tests/esp32c6 -e esp32c6`
+3. Run: `fbuild build tests/esp32c6 -e esp32c6`
 
 **Expected Results:**
 - Stale PID detected
@@ -512,7 +512,7 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 **Steps:**
 1. Start daemon and begin operation
 2. Manually corrupt status file (invalid JSON)
-3. Check status: `zap daemon status`
+3. Check status: `fbuild daemon status`
 
 **Expected Results:**
 - Corruption detected
@@ -532,12 +532,12 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 **Objective:** Measure incremental build time
 
 **Steps:**
-1. Clean build: `zap build tests/esp32c6 -e esp32c6 --clean`
+1. Clean build: `fbuild build tests/esp32c6 -e esp32c6 --clean`
 2. Note time
-3. No-change rebuild: `zap build tests/esp32c6 -e esp32c6`
+3. No-change rebuild: `fbuild build tests/esp32c6 -e esp32c6`
 4. Note time
 5. Change one line in main.cpp
-6. Rebuild: `zap build tests/esp32c6 -e esp32c6`
+6. Rebuild: `fbuild build tests/esp32c6 -e esp32c6`
 7. Note time
 
 **Expected Results:**
@@ -596,7 +596,7 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 **Objective:** Verify monitor can run for extended periods
 
 **Steps:**
-1. Run: `zap monitor tests/esp32c6 -e esp32c6 --timeout=300` (5 minutes)
+1. Run: `fbuild monitor tests/esp32c6 -e esp32c6 --timeout=300` (5 minutes)
 2. Let run to completion
 
 **Expected Results:**
@@ -655,11 +655,11 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 ## Test Execution Checklist
 
 ### Pre-Test Setup
-- [ ] Install Zapio (`pip install -e .`)
+- [ ] Install fbuild (`pip install -e .`)
 - [ ] Install dependencies (`pip install -r requirements.txt`)
 - [ ] Connect ESP32 devices
 - [ ] Verify serial port permissions
-- [ ] Stop any running daemon (`zap daemon stop`)
+- [ ] Stop any running daemon (`fbuild daemon stop`)
 
 ### Test Execution
 - [ ] Run Basic Daemon Operations (Tests 1.1-1.4)
@@ -672,7 +672,7 @@ This document provides a comprehensive test plan for the Zapio daemon system, wh
 - [ ] Run Long-Running Operations (Tests 8.1-8.3)
 
 ### Post-Test Cleanup
-- [ ] Stop daemon (`zap daemon stop`)
+- [ ] Stop daemon (`fbuild daemon stop`)
 - [ ] Remove test artifacts
 - [ ] Document any failures
 - [ ] Log performance metrics
@@ -755,13 +755,13 @@ Notes:
 ### Common Issues
 
 **Issue:** Daemon won't start
-- Check PID file: `~/.zapio/daemon.pid`
+- Check PID file: `~/.fbuild/daemon.pid`
 - Check daemon logs
 - Verify Python installation
 
 **Issue:** Port locked error
-- Check for stale daemon: `zap daemon status`
-- Restart daemon: `zap daemon restart`
+- Check for stale daemon: `fbuild daemon status`
+- Restart daemon: `fbuild daemon restart`
 - Check for other programs using port
 
 **Issue:** Operation hangs

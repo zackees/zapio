@@ -7,7 +7,7 @@ Tests the AVR-GCC compiler wrapper functionality.
 import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
-from zapio.build.compiler_avr import CompilerAVR, CompileResult, CompilerError
+from fbuild.build.compiler_avr import CompilerAVR, CompileResult, CompilerError
 
 
 class TestCompiler:

@@ -1,6 +1,6 @@
 # Teensy 4.1 Test Project
 
-This is a test project for validating Teensy 4.1 platform support in Zapio.
+This is a test project for validating Teensy 4.1 platform support in fbuild.
 
 ## Board Specifications
 
@@ -22,13 +22,13 @@ The test code implements a simple LED blink example that:
 
 ```bash
 # Clean build
-uv run zap build tests/teensy41 -e teensy41 --clean
+uv run fbuild build tests/teensy41 -e teensy41 --clean
 
 # Incremental build
-uv run zap build tests/teensy41 -e teensy41
+uv run fbuild build tests/teensy41 -e teensy41
 
 # Verbose build
-uv run zap build tests/teensy41 -e teensy41 -v
+uv run fbuild build tests/teensy41 -e teensy41 -v
 ```
 
 ## Expected Output
@@ -46,10 +46,10 @@ After successful build:
 
 ```bash
 # Deploy to Teensy 4.1 board
-uv run zap deploy tests/teensy41 -e teensy41
+uv run fbuild deploy tests/teensy41 -e teensy41
 
 # Deploy and monitor serial output
-uv run zap deploy tests/teensy41 -e teensy41 --monitor
+uv run fbuild deploy tests/teensy41 -e teensy41 --monitor
 ```
 
 Expected behavior:
@@ -86,12 +86,12 @@ Expected behavior:
 
 ### Module Structure
 ```
-src/zapio/packages/
+src/fbuild/packages/
 ├── toolchain_teensy.py    # ARM GCC toolchain management
 ├── framework_teensy.py    # Teensy cores framework
 └── platform_teensy.py     # Platform coordination
 
-src/zapio/config/
+src/fbuild/config/
 └── board_config.py        # Added teensy41 board definition
 ```
 

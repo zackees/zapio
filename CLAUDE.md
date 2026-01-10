@@ -1,8 +1,8 @@
-# Zapio - Modern Embedded Development Tool
+# fbuild - Modern Embedded Development Tool
 
 ## Project Overview
 
-Zapio is a next-generation embedded development tool designed to replace PlatformIO with a cleaner, more reliable architecture. It provides transparent URL-based package management, fast incremental builds, and comprehensive support for Arduino and ESP32 platforms.
+fbuild is a next-generation embedded development tool designed to replace PlatformIO with a cleaner, more reliable architecture. It provides transparent URL-based package management, fast incremental builds, and comprehensive support for Arduino and ESP32 platforms.
 
 **Current Version:** v0.1.0
 **Status:** Full Arduino Uno support with working build system
@@ -19,15 +19,15 @@ Zapio is a next-generation embedded development tool designed to replace Platfor
 
 ## Project Structure
 
-### Core Source Code (`src/zapio/`)
+### Core Source Code (`src/fbuild/`)
 
 #### CLI Interface
 - **`cli.py`** - Main command-line interface with three commands:
-  - `zap build` - Build firmware
-  - `zap deploy` - Deploy firmware to device
-  - `zap monitor` - Monitor serial output
+  - `fbuild build` - Build firmware
+  - `fbuild deploy` - Deploy firmware to device
+  - `fbuild monitor` - Monitor serial output
 
-#### Build System (`src/zapio/build/`)
+#### Build System (`src/fbuild/build/`)
 - **`orchestrator.py`** - Coordinates the entire build pipeline
 - **`compiler.py`** - C/C++ compilation wrapper
 - **`configurable_compiler.py`** - Configurable compiler module
@@ -35,11 +35,11 @@ Zapio is a next-generation embedded development tool designed to replace Platfor
 - **`configurable_linker.py`** - Configurable linker module
 - **`source_scanner.py`** - Source file discovery and .ino preprocessing
 
-#### Configuration (`src/zapio/config/`)
+#### Configuration (`src/fbuild/config/`)
 - **`ini_parser.py`** - PlatformIO.ini file parsing
 - **`board_config.py`** - Board-specific configuration loading
 
-#### Package Management (`src/zapio/packages/`)
+#### Package Management (`src/fbuild/packages/`)
 - **`downloader.py`** - HTTP download with checksum verification
 - **`toolchain.py`** - AVR toolchain management
 - **`arduino_core.py`** - Arduino core library management
@@ -50,7 +50,7 @@ Zapio is a next-generation embedded development tool designed to replace Platfor
 - **`esp32_framework.py`** - ESP32 framework support
 - **`platformio_registry.py`** - PlatformIO registry integration
 
-#### Deployment (`src/zapio/deploy/`)
+#### Deployment (`src/fbuild/deploy/`)
 - **`deployer.py`** - Firmware uploading (ESP32 support via esptool)
 - **`monitor.py`** - Serial port monitoring with pattern matching
 
@@ -150,17 +150,17 @@ lib_deps =
 
 ### Build Command
 ```bash
-zap build [project_dir] -e [environment] [-c/--clean] [-v/--verbose]
+fbuild build [project_dir] -e [environment] [-c/--clean] [-v/--verbose]
 ```
 
 ### Deploy Command
 ```bash
-zap deploy [project_dir] -e [environment] [-p/--port] [-c/--clean] [--monitor]
+fbuild deploy [project_dir] -e [environment] [-p/--port] [-c/--clean] [--monitor]
 ```
 
 ### Monitor Command
 ```bash
-zap monitor [project_dir] -e [environment] [-p/--port] [-b/--baud]
+fbuild monitor [project_dir] -e [environment] [-p/--port] [-b/--baud]
             [--halt-on-error] [--halt-on-success] [-t/--timeout]
 ```
 
@@ -170,8 +170,8 @@ zap monitor [project_dir] -e [environment] [-p/--port] [-b/--baud]
 1. Clone the repository
 2. Install in development mode: `pip install -e .`
 3. Run tests: `pytest`
-4. Check types: `mypy src/zapio`
-5. Lint code: `ruff check src/zapio`
+4. Check types: `mypy src/fbuild`
+5. Lint code: `ruff check src/fbuild`
 
 ### Running Tests
 The `tests/` directory contains integration test projects for various platforms. Each test project has a `platformio.ini` configuration and example sketches.
@@ -180,17 +180,17 @@ The `tests/` directory contains integration test projects for various platforms.
 
 **Build a test project:**
 ```bash
-zap build tests/uno -e uno
+fbuild build tests/uno -e uno
 ```
 
 **Deploy to device:**
 ```bash
-zap deploy tests/esp32dev -e esp32dev --monitor
+fbuild deploy tests/esp32dev -e esp32dev --monitor
 ```
 
 **Run with verbose output:**
 ```bash
-zap build tests/uno -e uno -v
+fbuild build tests/uno -e uno -v
 ```
 
 ## Performance
@@ -233,7 +233,7 @@ Latest commits show active development:
 
 **Package download issues:**
 - Check internet connection
-- Clear package cache in `~/.zapio/`
+- Clear package cache in `~/.fbuild/`
 - Verify GitHub URLs in `lib_deps`
 
 **Serial port access:**

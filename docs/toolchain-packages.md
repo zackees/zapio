@@ -173,7 +173,7 @@ Get-FileHash avr-1.8.6.tar.bz2 -Algorithm SHA256
 
 ### Recommended Cache Structure
 ```
-.zap/
+.fbuild/
 └── cache/
     ├── packages/
     │   └── avr-gcc-7.3.0-atmel3.6.1-arduino7/
@@ -198,7 +198,7 @@ Get-FileHash avr-1.8.6.tar.bz2 -Algorithm SHA256
 ### Download & Installation Flow
 1. **Detect Platform**: Determine OS and architecture
 2. **Select URL**: Choose appropriate toolchain URL
-3. **Check Cache**: Look for existing installation in `.zap/cache/`
+3. **Check Cache**: Look for existing installation in `.fbuild/cache/`
 4. **Download**: If not cached, download with progress bar
 5. **Verify**: Check SHA-256 checksum (if available)
 6. **Extract**: Unpack archive to cache directory
@@ -346,13 +346,13 @@ If you see missing DLL errors on Windows, ensure:
 ### Linux: Permission Denied
 ```bash
 # Make executables runnable
-chmod +x .zap/cache/packages/avr-gcc-7.3.0-atmel3.6.1-arduino7/bin/*
+chmod +x .fbuild/cache/packages/avr-gcc-7.3.0-atmel3.6.1-arduino7/bin/*
 ```
 
 ### macOS: "Cannot be opened because the developer cannot be verified"
 ```bash
 # Remove quarantine attribute
-xattr -r -d com.apple.quarantine .zap/cache/packages/avr-gcc-7.3.0-atmel3.6.1-arduino7/
+xattr -r -d com.apple.quarantine .fbuild/cache/packages/avr-gcc-7.3.0-atmel3.6.1-arduino7/
 ```
 
 ### Verification Failure

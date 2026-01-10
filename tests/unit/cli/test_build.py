@@ -6,22 +6,20 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from zapio.build.linker import SizeInfo
-from zapio.build.orchestrator import BuildResult
-from zapio.cli import main
+from fbuild.build.linker import SizeInfo
+from fbuild.build.orchestrator import BuildResult
+from fbuild.cli import main
 
 
 class TestCLIBuild:
-    """Tests for the 'zap build' command."""
+    """Tests for the 'fbuild build' command."""
 
     @pytest.fixture
     def mock_orchestrator(self, tmp_path):
         """Create mock BuildOrchestrator and setup test environment."""
         # Create a fake platformio.ini file so CLI validation passes
         platformio_ini = tmp_path / "platformio.ini"
-        platformio_ini.write_text(
-            "[platformio]\ndefault_envs = default\n\n[env:default]\nplatform = atmelavr\nboard = uno\n"
-        )
+        platformio_ini.write_text("[platformio]\ndefault_envs = default\n\n[env:default]\nplatform = atmelavr\nboard = uno\n")
 
         # Mock PlatformIOConfig to avoid file system checks
         mock_config = MagicMock()
@@ -29,8 +27,8 @@ class TestCLIBuild:
 
         # Mock BuildOrchestratorAVR and PlatformIOConfig
         with (
-            patch("zapio.cli.BuildOrchestratorAVR") as mock_orch_class,
-            patch("zapio.config.PlatformIOConfig", return_value=mock_config),
+            patch("fbuild.cli.BuildOrchestratorAVR") as mock_orch_class,
+            patch("fbuild.config.PlatformIOConfig", return_value=mock_config),
         ):
             mock_instance = MagicMock()
             mock_orch_class.return_value = mock_instance
@@ -44,8 +42,8 @@ class TestCLIBuild:
     @pytest.fixture
     def success_result(self, tmp_path):
         """Create successful build result."""
-        hex_path = tmp_path / ".zap" / "build" / "uno" / "firmware.hex"
-        elf_path = tmp_path / ".zap" / "build" / "uno" / "firmware.elf"
+        hex_path = tmp_path / ".fbuild" / "build" / "uno" / "firmware.hex"
+        elf_path = tmp_path / ".fbuild" / "build" / "uno" / "firmware.elf"
 
         size_info = SizeInfo(
             text=1000,
@@ -78,13 +76,11 @@ class TestCLIBuild:
             message="Compilation failed: syntax error in main.cpp",
         )
 
-    def test_build_success(
-        self, mock_orchestrator, success_result, project_dir, monkeypatch, capsys
-    ):
+    def test_build_success(self, mock_orchestrator, success_result, project_dir, monkeypatch, capsys):
         """Test successful build."""
         mock_orchestrator.build.return_value = success_result
 
-        monkeypatch.setattr(sys, "argv", ["zap", "build", str(project_dir)])
+        monkeypatch.setattr(sys, "argv", ["fbuild", "build", str(project_dir)])
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -103,15 +99,11 @@ class TestCLIBuild:
         assert call_kwargs["clean"] is False
         assert call_kwargs["verbose"] is False
 
-    def test_build_with_environment(
-        self, mock_orchestrator, success_result, project_dir, monkeypatch
-    ):
+    def test_build_with_environment(self, mock_orchestrator, success_result, project_dir, monkeypatch):
         """Test build with specific environment."""
         mock_orchestrator.build.return_value = success_result
 
-        monkeypatch.setattr(
-            sys, "argv", ["zap", "build", "--environment", "uno", str(project_dir)]
-        )
+        monkeypatch.setattr(sys, "argv", ["fbuild", "build", "--environment", "uno", str(project_dir)])
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -121,15 +113,11 @@ class TestCLIBuild:
         call_kwargs = mock_orchestrator.build.call_args.kwargs
         assert call_kwargs["env_name"] == "uno"
 
-    def test_build_with_environment_short_option(
-        self, mock_orchestrator, success_result, project_dir, monkeypatch
-    ):
+    def test_build_with_environment_short_option(self, mock_orchestrator, success_result, project_dir, monkeypatch):
         """Test build with environment short option."""
         mock_orchestrator.build.return_value = success_result
 
-        monkeypatch.setattr(
-            sys, "argv", ["zap", "build", "-e", "mega", str(project_dir)]
-        )
+        monkeypatch.setattr(sys, "argv", ["fbuild", "build", "-e", "mega", str(project_dir)])
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -139,13 +127,11 @@ class TestCLIBuild:
         call_kwargs = mock_orchestrator.build.call_args.kwargs
         assert call_kwargs["env_name"] == "mega"
 
-    def test_build_with_clean(
-        self, mock_orchestrator, success_result, project_dir, monkeypatch
-    ):
+    def test_build_with_clean(self, mock_orchestrator, success_result, project_dir, monkeypatch):
         """Test build with clean flag."""
         mock_orchestrator.build.return_value = success_result
 
-        monkeypatch.setattr(sys, "argv", ["zap", "build", "--clean", str(project_dir)])
+        monkeypatch.setattr(sys, "argv", ["fbuild", "build", "--clean", str(project_dir)])
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -155,13 +141,11 @@ class TestCLIBuild:
         call_kwargs = mock_orchestrator.build.call_args.kwargs
         assert call_kwargs["clean"] is True
 
-    def test_build_with_clean_short_option(
-        self, mock_orchestrator, success_result, project_dir, monkeypatch
-    ):
+    def test_build_with_clean_short_option(self, mock_orchestrator, success_result, project_dir, monkeypatch):
         """Test build with clean short option."""
         mock_orchestrator.build.return_value = success_result
 
-        monkeypatch.setattr(sys, "argv", ["zap", "build", "-c", str(project_dir)])
+        monkeypatch.setattr(sys, "argv", ["fbuild", "build", "-c", str(project_dir)])
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -170,15 +154,11 @@ class TestCLIBuild:
         call_kwargs = mock_orchestrator.build.call_args.kwargs
         assert call_kwargs["clean"] is True
 
-    def test_build_with_verbose(
-        self, mock_orchestrator, success_result, project_dir, monkeypatch, capsys
-    ):
+    def test_build_with_verbose(self, mock_orchestrator, success_result, project_dir, monkeypatch, capsys):
         """Test build with verbose flag."""
         mock_orchestrator.build.return_value = success_result
 
-        monkeypatch.setattr(
-            sys, "argv", ["zap", "build", "--verbose", str(project_dir)]
-        )
+        monkeypatch.setattr(sys, "argv", ["fbuild", "build", "--verbose", str(project_dir)])
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -190,13 +170,11 @@ class TestCLIBuild:
         call_kwargs = mock_orchestrator.build.call_args.kwargs
         assert call_kwargs["verbose"] is True
 
-    def test_build_with_verbose_short_option(
-        self, mock_orchestrator, success_result, project_dir, monkeypatch
-    ):
+    def test_build_with_verbose_short_option(self, mock_orchestrator, success_result, project_dir, monkeypatch):
         """Test build with verbose short option."""
         mock_orchestrator.build.return_value = success_result
 
-        monkeypatch.setattr(sys, "argv", ["zap", "build", "-v", str(project_dir)])
+        monkeypatch.setattr(sys, "argv", ["fbuild", "build", "-v", str(project_dir)])
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -205,13 +183,11 @@ class TestCLIBuild:
         call_kwargs = mock_orchestrator.build.call_args.kwargs
         assert call_kwargs["verbose"] is True
 
-    def test_build_with_project_dir(
-        self, mock_orchestrator, success_result, tmp_path, monkeypatch
-    ):
+    def test_build_with_project_dir(self, mock_orchestrator, success_result, tmp_path, monkeypatch):
         """Test build with custom project directory as positional argument."""
         mock_orchestrator.build.return_value = success_result
 
-        monkeypatch.setattr(sys, "argv", ["zap", "build", str(tmp_path)])
+        monkeypatch.setattr(sys, "argv", ["fbuild", "build", str(tmp_path)])
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -221,15 +197,11 @@ class TestCLIBuild:
         call_kwargs = mock_orchestrator.build.call_args.kwargs
         assert call_kwargs["project_dir"] == tmp_path
 
-    def test_build_combined_options(
-        self, mock_orchestrator, success_result, project_dir, monkeypatch
-    ):
+    def test_build_combined_options(self, mock_orchestrator, success_result, project_dir, monkeypatch):
         """Test build with multiple options combined."""
         mock_orchestrator.build.return_value = success_result
 
-        monkeypatch.setattr(
-            sys, "argv", ["zap", "build", "-e", "uno", "-c", "-v", str(project_dir)]
-        )
+        monkeypatch.setattr(sys, "argv", ["fbuild", "build", "-e", "uno", "-c", "-v", str(project_dir)])
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -241,13 +213,11 @@ class TestCLIBuild:
         assert call_kwargs["clean"] is True
         assert call_kwargs["verbose"] is True
 
-    def test_build_failure(
-        self, mock_orchestrator, failure_result, project_dir, monkeypatch, capsys
-    ):
+    def test_build_failure(self, mock_orchestrator, failure_result, project_dir, monkeypatch, capsys):
         """Test failed build."""
         mock_orchestrator.build.return_value = failure_result
 
-        monkeypatch.setattr(sys, "argv", ["zap", "build", str(project_dir)])
+        monkeypatch.setattr(sys, "argv", ["fbuild", "build", str(project_dir)])
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -257,15 +227,11 @@ class TestCLIBuild:
         assert "Build failed" in captured.out
         assert "syntax error" in captured.out
 
-    def test_build_file_not_found(
-        self, mock_orchestrator, project_dir, monkeypatch, capsys
-    ):
+    def test_build_file_not_found(self, mock_orchestrator, project_dir, monkeypatch, capsys):
         """Test build with missing file."""
-        mock_orchestrator.build.side_effect = FileNotFoundError(
-            "platformio.ini not found"
-        )
+        mock_orchestrator.build.side_effect = FileNotFoundError("platformio.ini not found")
 
-        monkeypatch.setattr(sys, "argv", ["zap", "build", str(project_dir)])
+        monkeypatch.setattr(sys, "argv", ["fbuild", "build", str(project_dir)])
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -274,17 +240,13 @@ class TestCLIBuild:
         captured = capsys.readouterr()
         assert "File not found" in captured.out
         assert "platformio.ini" in captured.out
-        assert "Zapio project directory" in captured.out
+        assert "fbuild project directory" in captured.out
 
-    def test_build_permission_error(
-        self, mock_orchestrator, project_dir, monkeypatch, capsys
-    ):
+    def test_build_permission_error(self, mock_orchestrator, project_dir, monkeypatch, capsys):
         """Test build with permission error."""
-        mock_orchestrator.build.side_effect = PermissionError(
-            "Cannot write to build directory"
-        )
+        mock_orchestrator.build.side_effect = PermissionError("Cannot write to build directory")
 
-        monkeypatch.setattr(sys, "argv", ["zap", "build", str(project_dir)])
+        monkeypatch.setattr(sys, "argv", ["fbuild", "build", str(project_dir)])
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -293,13 +255,11 @@ class TestCLIBuild:
         captured = capsys.readouterr()
         assert "Permission denied" in captured.out
 
-    def test_build_keyboard_interrupt(
-        self, mock_orchestrator, project_dir, monkeypatch, capsys
-    ):
+    def test_build_keyboard_interrupt(self, mock_orchestrator, project_dir, monkeypatch, capsys):
         """Test build interrupted by user."""
         mock_orchestrator.build.side_effect = KeyboardInterrupt()
 
-        monkeypatch.setattr(sys, "argv", ["zap", "build", str(project_dir)])
+        monkeypatch.setattr(sys, "argv", ["fbuild", "build", str(project_dir)])
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -308,13 +268,11 @@ class TestCLIBuild:
         captured = capsys.readouterr()
         assert "interrupted" in captured.out
 
-    def test_build_unexpected_error(
-        self, mock_orchestrator, project_dir, monkeypatch, capsys
-    ):
+    def test_build_unexpected_error(self, mock_orchestrator, project_dir, monkeypatch, capsys):
         """Test build with unexpected error."""
         mock_orchestrator.build.side_effect = RuntimeError("Unexpected error occurred")
 
-        monkeypatch.setattr(sys, "argv", ["zap", "build", str(project_dir)])
+        monkeypatch.setattr(sys, "argv", ["fbuild", "build", str(project_dir)])
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -324,13 +282,11 @@ class TestCLIBuild:
         assert "Unexpected error" in captured.out
         assert "RuntimeError" in captured.out
 
-    def test_build_unexpected_error_verbose(
-        self, mock_orchestrator, project_dir, monkeypatch, capsys
-    ):
+    def test_build_unexpected_error_verbose(self, mock_orchestrator, project_dir, monkeypatch, capsys):
         """Test build with unexpected error in verbose mode."""
         mock_orchestrator.build.side_effect = RuntimeError("Unexpected error occurred")
 
-        monkeypatch.setattr(sys, "argv", ["zap", "build", "-v", str(project_dir)])
+        monkeypatch.setattr(sys, "argv", ["fbuild", "build", "-v", str(project_dir)])
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -340,9 +296,7 @@ class TestCLIBuild:
         assert "Unexpected error" in captured.out
         assert "Traceback:" in captured.out
 
-    def test_build_success_no_size_info(
-        self, mock_orchestrator, tmp_path, project_dir, monkeypatch, capsys
-    ):
+    def test_build_success_no_size_info(self, mock_orchestrator, tmp_path, project_dir, monkeypatch, capsys):
         """Test successful build without size information."""
         result_no_size = BuildResult(
             success=True,
@@ -354,7 +308,7 @@ class TestCLIBuild:
         )
         mock_orchestrator.build.return_value = result_no_size
 
-        monkeypatch.setattr(sys, "argv", ["zap", "build", str(project_dir)])
+        monkeypatch.setattr(sys, "argv", ["fbuild", "build", str(project_dir)])
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -370,7 +324,7 @@ class TestCLIBuild:
         """Test build with nonexistent project directory."""
         nonexistent_path = Path("/nonexistent/path")
 
-        monkeypatch.setattr(sys, "argv", ["zap", "build", str(nonexistent_path)])
+        monkeypatch.setattr(sys, "argv", ["fbuild", "build", str(nonexistent_path)])
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -381,19 +335,19 @@ class TestCLIBuild:
 
     def test_main_help(self, monkeypatch, capsys):
         """Test main help output."""
-        monkeypatch.setattr(sys, "argv", ["zap", "--help"])
+        monkeypatch.setattr(sys, "argv", ["fbuild", "--help"])
 
         with pytest.raises(SystemExit) as exc_info:
             main()
 
         assert exc_info.value.code == 0
         captured = capsys.readouterr()
-        assert "Zapio" in captured.out
+        assert "fbuild" in captured.out
         assert "build" in captured.out
 
     def test_build_help(self, monkeypatch, capsys):
         """Test build command help output."""
-        monkeypatch.setattr(sys, "argv", ["zap", "build", "--help"])
+        monkeypatch.setattr(sys, "argv", ["fbuild", "build", "--help"])
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -407,7 +361,7 @@ class TestCLIBuild:
 
     def test_main_version(self, monkeypatch, capsys):
         """Test version flag."""
-        monkeypatch.setattr(sys, "argv", ["zap", "--version"])
+        monkeypatch.setattr(sys, "argv", ["fbuild", "--version"])
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -422,13 +376,13 @@ class TestCLIIntegration:
 
     def test_cli_import(self):
         """Test that CLI can be imported."""
-        from zapio.cli import build_command, main
+        from fbuild.cli import build_command, main
 
         assert callable(build_command)
         assert callable(main)
 
     def test_main_is_function(self):
         """Test that main is a callable function."""
-        from zapio.cli import main
+        from fbuild.cli import main
 
         assert callable(main)

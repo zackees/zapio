@@ -7,7 +7,7 @@ Tests the AVR linker wrapper functionality.
 import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
-from zapio.build.linker import LinkerAVR, LinkResult, SizeInfo, LinkerError
+from fbuild.build.linker import LinkerAVR, LinkResult, SizeInfo, LinkerError
 
 
 class TestSizeInfo:

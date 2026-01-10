@@ -7,8 +7,8 @@ from unittest.mock import patch
 
 import pytest
 
-from zapio.packages.cache import Cache
-from zapio.packages.toolchain import ToolchainAVR, ToolchainError
+from fbuild.packages.cache import Cache
+from fbuild.packages.toolchain import ToolchainAVR, ToolchainError
 
 
 class TestToolchain:
@@ -54,9 +54,7 @@ class TestToolchain:
 
     def test_get_package_info_windows(self):
         """Test getting package info for Windows."""
-        with patch.object(
-            ToolchainAVR, "detect_platform", return_value=("windows", "x86_64")
-        ):
+        with patch.object(ToolchainAVR, "detect_platform", return_value=("windows", "x86_64")):
             with tempfile.TemporaryDirectory() as temp_dir:
                 cache = Cache(Path(temp_dir))
                 toolchain = ToolchainAVR(cache)
@@ -68,9 +66,7 @@ class TestToolchain:
 
     def test_get_package_info_linux(self):
         """Test getting package info for Linux."""
-        with patch.object(
-            ToolchainAVR, "detect_platform", return_value=("linux", "x86_64")
-        ):
+        with patch.object(ToolchainAVR, "detect_platform", return_value=("linux", "x86_64")):
             with tempfile.TemporaryDirectory() as temp_dir:
                 cache = Cache(Path(temp_dir))
                 toolchain = ToolchainAVR(cache)
@@ -82,9 +78,7 @@ class TestToolchain:
 
     def test_get_package_info_macos(self):
         """Test getting package info for macOS."""
-        with patch.object(
-            ToolchainAVR, "detect_platform", return_value=("darwin", "x86_64")
-        ):
+        with patch.object(ToolchainAVR, "detect_platform", return_value=("darwin", "x86_64")):
             with tempfile.TemporaryDirectory() as temp_dir:
                 cache = Cache(Path(temp_dir))
                 toolchain = ToolchainAVR(cache)
@@ -96,9 +90,7 @@ class TestToolchain:
 
     def test_get_package_info_unsupported_platform(self):
         """Test error for unsupported platform."""
-        with patch.object(
-            ToolchainAVR, "detect_platform", return_value=("freebsd", "x86_64")
-        ):
+        with patch.object(ToolchainAVR, "detect_platform", return_value=("freebsd", "x86_64")):
             with tempfile.TemporaryDirectory() as temp_dir:
                 cache = Cache(Path(temp_dir))
                 toolchain = ToolchainAVR(cache)
@@ -242,9 +234,7 @@ class TestToolchain:
             toolchain = ToolchainAVR(cache)
 
             # Create a fake cached toolchain with new URL-based structure
-            toolchain_path = cache.get_toolchain_path(
-                ToolchainAVR.BASE_URL, ToolchainAVR.VERSION
-            )
+            toolchain_path = cache.get_toolchain_path(ToolchainAVR.BASE_URL, ToolchainAVR.VERSION)
 
             # Create required directories
             bin_dir = toolchain_path / "bin"
@@ -276,9 +266,7 @@ class TestToolchain:
 
     def test_architecture_fallback(self):
         """Test architecture fallback to x86_64."""
-        with patch.object(
-            ToolchainAVR, "detect_platform", return_value=("linux", "unknown_arch")
-        ):
+        with patch.object(ToolchainAVR, "detect_platform", return_value=("linux", "unknown_arch")):
             with tempfile.TemporaryDirectory() as temp_dir:
                 cache = Cache(Path(temp_dir))
                 toolchain = ToolchainAVR(cache)

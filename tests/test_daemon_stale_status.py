@@ -30,13 +30,13 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from zapio.daemon.client import (
+from fbuild.daemon.client import (
     ensure_daemon_running,
     is_daemon_running,
     read_status_file,
 )
-from zapio.daemon.daemon import update_status, write_status_file_atomic
-from zapio.daemon.messages import DaemonState, DaemonStatus
+from fbuild.daemon.daemon import update_status, write_status_file_atomic
+from fbuild.daemon.messages import DaemonState, DaemonStatus
 
 
 class TestStalePIDDetection:
@@ -50,7 +50,7 @@ class TestStalePIDDetection:
         pid_file.write_text(str(fake_pid))
 
         # Mock the global PID_FILE to use our temp file
-        with patch("zapio.daemon.client.PID_FILE", pid_file):
+        with patch("fbuild.daemon.client.PID_FILE", pid_file):
             result = is_daemon_running()
 
         # Should return False and remove the stale PID file
@@ -64,7 +64,7 @@ class TestStalePIDDetection:
         current_pid = os.getpid()
         pid_file.write_text(str(current_pid))
 
-        with patch("zapio.daemon.client.PID_FILE", pid_file):
+        with patch("fbuild.daemon.client.PID_FILE", pid_file):
             result = is_daemon_running()
 
         # Should return True and keep the PID file
@@ -76,7 +76,7 @@ class TestStalePIDDetection:
         pid_file = tmp_path / "test.pid"
         pid_file.write_text("not-a-number")
 
-        with patch("zapio.daemon.client.PID_FILE", pid_file):
+        with patch("fbuild.daemon.client.PID_FILE", pid_file):
             result = is_daemon_running()
 
         # Should return False and remove the corrupted PID file
@@ -107,16 +107,14 @@ class TestStaleStatusFileClear:
 
         # Mock daemon start to avoid actually starting a process
         mock_start_daemon = Mock()
-        mock_is_running = Mock(
-            side_effect=[False, True, True]
-        )  # Not running, then running after start
+        mock_is_running = Mock(side_effect=[False, True, True])  # Not running, then running after start
 
         with (
-            patch("zapio.daemon.client.PID_FILE", pid_file),
-            patch("zapio.daemon.client.STATUS_FILE", status_file),
-            patch("zapio.daemon.client.start_daemon", mock_start_daemon),
-            patch("zapio.daemon.client.is_daemon_running", mock_is_running),
-            patch("zapio.daemon.client.read_status_file") as mock_read_status,
+            patch("fbuild.daemon.client.PID_FILE", pid_file),
+            patch("fbuild.daemon.client.STATUS_FILE", status_file),
+            patch("fbuild.daemon.client.start_daemon", mock_start_daemon),
+            patch("fbuild.daemon.client.is_daemon_running", mock_is_running),
+            patch("fbuild.daemon.client.read_status_file") as mock_read_status,
         ):
             # Mock read_status_file to return valid status (daemon started)
             mock_read_status.return_value = DaemonStatus(
@@ -156,11 +154,11 @@ class TestStaleStatusFileClear:
         mock_is_running = Mock(side_effect=[False, True, True])
 
         with (
-            patch("zapio.daemon.client.PID_FILE", pid_file),
-            patch("zapio.daemon.client.STATUS_FILE", status_file),
-            patch("zapio.daemon.client.is_daemon_running", mock_is_running),
-            patch("zapio.daemon.client.read_status_file") as mock_read_status,
-            patch("zapio.daemon.client.start_daemon") as mock_start_daemon,
+            patch("fbuild.daemon.client.PID_FILE", pid_file),
+            patch("fbuild.daemon.client.STATUS_FILE", status_file),
+            patch("fbuild.daemon.client.is_daemon_running", mock_is_running),
+            patch("fbuild.daemon.client.read_status_file") as mock_read_status,
+            patch("fbuild.daemon.client.start_daemon") as mock_start_daemon,
         ):
             mock_read_status.return_value = DaemonStatus(
                 state=DaemonState.IDLE,
@@ -188,9 +186,9 @@ class TestDaemonFreshStatusWrite:
 
         # Simulate daemon startup: call update_status at daemon initialization
         with (
-            patch("zapio.daemon.daemon.STATUS_FILE", status_file),
-            patch("zapio.daemon.daemon._daemon_pid", 12345),
-            patch("zapio.daemon.daemon._daemon_started_at", time.time()),
+            patch("fbuild.daemon.daemon.STATUS_FILE", status_file),
+            patch("fbuild.daemon.daemon._daemon_pid", 12345),
+            patch("fbuild.daemon.daemon._daemon_started_at", time.time()),
         ):
             # This is what daemon does on line 696 of daemon.py
             update_status(DaemonState.IDLE, "Daemon starting...")
@@ -222,9 +220,9 @@ class TestDaemonFreshStatusWrite:
 
         # Simulate daemon startup writing fresh status
         with (
-            patch("zapio.daemon.daemon.STATUS_FILE", status_file),
-            patch("zapio.daemon.daemon._daemon_pid", 12345),
-            patch("zapio.daemon.daemon._daemon_started_at", time.time()),
+            patch("fbuild.daemon.daemon.STATUS_FILE", status_file),
+            patch("fbuild.daemon.daemon._daemon_pid", 12345),
+            patch("fbuild.daemon.daemon._daemon_started_at", time.time()),
         ):
             update_status(DaemonState.IDLE, "Daemon ready")
 
@@ -291,13 +289,14 @@ class TestStaleStatusRaceCondition:
                 json.dump(fresh_status.to_dict(), f)
 
         with (
-            patch("zapio.daemon.client.PID_FILE", pid_file),
-            patch("zapio.daemon.client.STATUS_FILE", status_file),
+            patch("fbuild.daemon.client.PID_FILE", pid_file),
+            patch("fbuild.daemon.client.STATUS_FILE", status_file),
             patch(
-                "zapio.daemon.client.is_daemon_running", side_effect=[False, True, True]
+                "fbuild.daemon.client.is_daemon_running",
+                side_effect=[False, True, True],
             ),
             patch(
-                "zapio.daemon.client.start_daemon",
+                "fbuild.daemon.client.start_daemon",
                 side_effect=mock_start_daemon_side_effect,
             ),
         ):
@@ -333,7 +332,7 @@ class TestAtomicStatusWrite:
             "updated_at": time.time(),
         }
 
-        with patch("zapio.daemon.daemon.STATUS_FILE", status_file):
+        with patch("fbuild.daemon.daemon.STATUS_FILE", status_file):
             write_status_file_atomic(status_data)
 
         # Verify: status file exists and is valid JSON
@@ -350,7 +349,7 @@ class TestAtomicStatusWrite:
         """Test that reading non-existent status file returns default status."""
         status_file = tmp_path / "nonexistent.json"
 
-        with patch("zapio.daemon.client.STATUS_FILE", status_file):
+        with patch("fbuild.daemon.client.STATUS_FILE", status_file):
             status = read_status_file()
 
         # Should return UNKNOWN state with appropriate message
@@ -362,14 +361,12 @@ class TestAtomicStatusWrite:
         status_file = tmp_path / "status.json"
         status_file.write_text("{invalid json")
 
-        with patch("zapio.daemon.client.STATUS_FILE", status_file):
+        with patch("fbuild.daemon.client.STATUS_FILE", status_file):
             status = read_status_file()
 
         # Should return UNKNOWN state indicating corruption
         assert status.state == DaemonState.UNKNOWN
-        assert (
-            "corrupted" in status.message.lower() or "invalid" in status.message.lower()
-        )
+        assert "corrupted" in status.message.lower() or "invalid" in status.message.lower()
 
 
 class TestClientWaitForFreshStatus:
@@ -418,18 +415,16 @@ class TestClientWaitForFreshStatus:
         mock_read_status_func = MockReadStatusDelayed()
 
         with (
-            patch("zapio.daemon.client.PID_FILE", pid_file),
-            patch("zapio.daemon.client.STATUS_FILE", status_file),
+            patch("fbuild.daemon.client.PID_FILE", pid_file),
+            patch("fbuild.daemon.client.STATUS_FILE", status_file),
             patch(
-                "zapio.daemon.client.is_daemon_running",
+                "fbuild.daemon.client.is_daemon_running",
                 side_effect=[False] + [True] * 20,
             ),
-            patch("zapio.daemon.client.start_daemon", mock_start_daemon),
-            patch("zapio.daemon.client.time.sleep"),  # Speed up test
+            patch("fbuild.daemon.client.start_daemon", mock_start_daemon),
+            patch("fbuild.daemon.client.time.sleep"),  # Speed up test
         ):
-            with patch(
-                "zapio.daemon.client.read_status_file", new=mock_read_status_func
-            ):
+            with patch("fbuild.daemon.client.read_status_file", new=mock_read_status_func):
                 result = ensure_daemon_running()
 
         # Should succeed after waiting for valid status
@@ -463,14 +458,14 @@ class TestClientWaitForFreshStatus:
             # Do NOT create status_file
 
         with (
-            patch("zapio.daemon.client.PID_FILE", pid_file),
-            patch("zapio.daemon.client.STATUS_FILE", status_file),
+            patch("fbuild.daemon.client.PID_FILE", pid_file),
+            patch("fbuild.daemon.client.STATUS_FILE", status_file),
             patch(
-                "zapio.daemon.client.is_daemon_running",
+                "fbuild.daemon.client.is_daemon_running",
                 side_effect=[False] + [False] * 10,
             ),  # Daemon never actually starts
-            patch("zapio.daemon.client.start_daemon", side_effect=mock_start_daemon),
-            patch("zapio.daemon.client.time.sleep"),  # Speed up test
+            patch("fbuild.daemon.client.start_daemon", side_effect=mock_start_daemon),
+            patch("fbuild.daemon.client.time.sleep"),  # Speed up test
         ):
             result = ensure_daemon_running()
 
@@ -486,9 +481,7 @@ class TestDaemonAlreadyRunningWithStaleStatus:
     ensure_daemon_running() never executed.
     """
 
-    def test_daemon_running_with_stale_status_from_previous_operation(
-        self, tmp_path: Path
-    ) -> None:
+    def test_daemon_running_with_stale_status_from_previous_operation(self, tmp_path: Path) -> None:
         """Test that stale status persists when daemon is already running.
 
         This replicates the integration test failure where:
@@ -520,9 +513,9 @@ class TestDaemonAlreadyRunningWithStaleStatus:
             json.dump(stale_status.to_dict(), f)
 
         with (
-            patch("zapio.daemon.client.PID_FILE", pid_file),
-            patch("zapio.daemon.client.STATUS_FILE", status_file),
-            patch("zapio.daemon.client.is_daemon_running", return_value=True),
+            patch("fbuild.daemon.client.PID_FILE", pid_file),
+            patch("fbuild.daemon.client.STATUS_FILE", status_file),
+            patch("fbuild.daemon.client.is_daemon_running", return_value=True),
         ):
             # Call ensure_daemon_running when daemon is already running
             result = ensure_daemon_running()
@@ -563,13 +556,14 @@ class TestDaemonAlreadyRunningWithStaleStatus:
         assert status_file.exists(), "Status file should exist before test"
 
         with (
-            patch("zapio.daemon.client.PID_FILE", pid_file),
-            patch("zapio.daemon.client.STATUS_FILE", status_file),
+            patch("fbuild.daemon.client.PID_FILE", pid_file),
+            patch("fbuild.daemon.client.STATUS_FILE", status_file),
             patch(
-                "zapio.daemon.client.is_daemon_running", side_effect=[False, True, True]
+                "fbuild.daemon.client.is_daemon_running",
+                side_effect=[False, True, True],
             ),
-            patch("zapio.daemon.client.start_daemon"),
-            patch("zapio.daemon.client.read_status_file") as mock_read_status,
+            patch("fbuild.daemon.client.start_daemon"),
+            patch("fbuild.daemon.client.read_status_file") as mock_read_status,
         ):
             mock_read_status.return_value = DaemonStatus(
                 state=DaemonState.IDLE,
@@ -588,9 +582,9 @@ class TestDaemonAlreadyRunningWithStaleStatus:
         original_content = status_file.read_text()
 
         with (
-            patch("zapio.daemon.client.PID_FILE", pid_file),
-            patch("zapio.daemon.client.STATUS_FILE", status_file),
-            patch("zapio.daemon.client.is_daemon_running", return_value=True),
+            patch("fbuild.daemon.client.PID_FILE", pid_file),
+            patch("fbuild.daemon.client.STATUS_FILE", status_file),
+            patch("fbuild.daemon.client.is_daemon_running", return_value=True),
         ):
             ensure_daemon_running()
 
@@ -621,7 +615,7 @@ class TestStatusFileTimestampValidation:
         with open(status_file, "w") as f:
             json.dump(old_status.to_dict(), f)
 
-        with patch("zapio.daemon.client.STATUS_FILE", status_file):
+        with patch("fbuild.daemon.client.STATUS_FILE", status_file):
             status = read_status_file()
 
         # Status is read as-is, but application logic should check timestamp
@@ -643,7 +637,7 @@ class TestStatusFileTimestampValidation:
         with open(status_file, "w") as f:
             json.dump(fresh_status.to_dict(), f)
 
-        with patch("zapio.daemon.client.STATUS_FILE", status_file):
+        with patch("fbuild.daemon.client.STATUS_FILE", status_file):
             status = read_status_file()
 
         # Status is fresh
@@ -686,9 +680,9 @@ class TestMultipleConsecutiveOperations:
 
         # Operation 2: Starts with daemon still running
         with (
-            patch("zapio.daemon.client.PID_FILE", pid_file),
-            patch("zapio.daemon.client.STATUS_FILE", status_file),
-            patch("zapio.daemon.client.is_daemon_running", return_value=True),
+            patch("fbuild.daemon.client.PID_FILE", pid_file),
+            patch("fbuild.daemon.client.STATUS_FILE", status_file),
+            patch("fbuild.daemon.client.is_daemon_running", return_value=True),
         ):
             result = ensure_daemon_running()
 
@@ -703,9 +697,7 @@ class TestMultipleConsecutiveOperations:
         # This is the documented limitation
         assert status_data["message"] == "Monitor requires port to be specified"
 
-    def test_daemon_overwrites_status_when_processing_new_request(
-        self, tmp_path: Path
-    ) -> None:
+    def test_daemon_overwrites_status_when_processing_new_request(self, tmp_path: Path) -> None:
         """Test that daemon overwrites old status when processing new request.
 
         This tests the DAEMON-SIDE behavior: when daemon processes a new request,
@@ -723,9 +715,9 @@ class TestMultipleConsecutiveOperations:
 
         # Daemon processes new request and updates status
         with (
-            patch("zapio.daemon.daemon.STATUS_FILE", status_file),
-            patch("zapio.daemon.daemon._daemon_pid", 12345),
-            patch("zapio.daemon.daemon._daemon_started_at", time.time()),
+            patch("fbuild.daemon.daemon.STATUS_FILE", status_file),
+            patch("fbuild.daemon.daemon._daemon_pid", 12345),
+            patch("fbuild.daemon.daemon._daemon_started_at", time.time()),
         ):
             # Daemon starts processing new deploy request
             update_status(DaemonState.DEPLOYING, "Deploying esp32c6")
@@ -769,12 +761,10 @@ class TestEdgeCasesAndRaceConditions:
             raise Exception("Failed to start daemon")
 
         with (
-            patch("zapio.daemon.client.PID_FILE", pid_file),
-            patch("zapio.daemon.client.STATUS_FILE", status_file),
-            patch("zapio.daemon.client.is_daemon_running", return_value=False),
-            patch(
-                "zapio.daemon.client.start_daemon", side_effect=mock_start_daemon_fails
-            ),
+            patch("fbuild.daemon.client.PID_FILE", pid_file),
+            patch("fbuild.daemon.client.STATUS_FILE", status_file),
+            patch("fbuild.daemon.client.is_daemon_running", return_value=False),
+            patch("fbuild.daemon.client.start_daemon", side_effect=mock_start_daemon_fails),
         ):
             try:
                 ensure_daemon_running()
@@ -786,9 +776,7 @@ class TestEdgeCasesAndRaceConditions:
         # The actual file system state depends on whether unlink() completed before exception
         # In the real code, unlink is in a try-except, so it should complete
 
-    def test_concurrent_daemon_starts_prevented_by_pid_check(
-        self, tmp_path: Path
-    ) -> None:
+    def test_concurrent_daemon_starts_prevented_by_pid_check(self, tmp_path: Path) -> None:
         """Test that multiple concurrent daemon starts are prevented by PID check.
 
         If two clients try to start daemon simultaneously, only one should succeed.
@@ -825,22 +813,20 @@ class TestEdgeCasesAndRaceConditions:
                 json.dump(fresh_status, f)
 
         with (
-            patch("zapio.daemon.client.PID_FILE", pid_file),
-            patch("zapio.daemon.client.STATUS_FILE", status_file),
+            patch("fbuild.daemon.client.PID_FILE", pid_file),
+            patch("fbuild.daemon.client.STATUS_FILE", status_file),
             patch(
-                "zapio.daemon.client.is_daemon_running",
+                "fbuild.daemon.client.is_daemon_running",
                 side_effect=mock_is_daemon_running,
             ),
-            patch("zapio.daemon.client.start_daemon", side_effect=mock_start_daemon),
+            patch("fbuild.daemon.client.start_daemon", side_effect=mock_start_daemon),
         ):
             result = ensure_daemon_running()
 
         assert result is True
         assert pid_file.exists()
 
-    def test_status_file_permissions_error_handled_gracefully(
-        self, tmp_path: Path
-    ) -> None:
+    def test_status_file_permissions_error_handled_gracefully(self, tmp_path: Path) -> None:
         """Test that permission errors when deleting status file are handled gracefully.
 
         This test documents the expected behavior: the code in client.py:175-181
@@ -873,13 +859,14 @@ class TestEdgeCasesAndRaceConditions:
         # The test verifies that even if status file exists and can't be deleted,
         # daemon starts successfully because the exception is caught
         with (
-            patch("zapio.daemon.client.PID_FILE", pid_file),
-            patch("zapio.daemon.client.STATUS_FILE", status_file),
+            patch("fbuild.daemon.client.PID_FILE", pid_file),
+            patch("fbuild.daemon.client.STATUS_FILE", status_file),
             patch(
-                "zapio.daemon.client.is_daemon_running", side_effect=[False, True, True]
+                "fbuild.daemon.client.is_daemon_running",
+                side_effect=[False, True, True],
             ),
-            patch("zapio.daemon.client.start_daemon"),
-            patch("zapio.daemon.client.read_status_file") as mock_read_status,
+            patch("fbuild.daemon.client.start_daemon"),
+            patch("fbuild.daemon.client.read_status_file") as mock_read_status,
         ):
             mock_read_status.return_value = DaemonStatus(
                 state=DaemonState.IDLE,

@@ -1,6 +1,6 @@
 # Teensy 4.0 Test Project
 
-This is a test project for validating Teensy 4.0 platform support in Zapio.
+This is a test project for validating Teensy 4.0 platform support in fbuild.
 
 ## Board Specifications
 
@@ -22,13 +22,13 @@ The test code implements a simple LED blink example that:
 
 ```bash
 # Clean build
-uv run zap build tests/teensy40 -e teensy40 --clean
+uv run fbuild build tests/teensy40 -e teensy40 --clean
 
 # Incremental build
-uv run zap build tests/teensy40 -e teensy40
+uv run fbuild build tests/teensy40 -e teensy40
 
 # Verbose build
-uv run zap build tests/teensy40 -e teensy40 -v
+uv run fbuild build tests/teensy40 -e teensy40 -v
 ```
 
 ## Expected Output
@@ -46,10 +46,10 @@ After successful build:
 
 ```bash
 # Deploy to Teensy 4.0 board
-uv run zap deploy tests/teensy40 -e teensy40
+uv run fbuild deploy tests/teensy40 -e teensy40
 
 # Deploy and monitor serial output
-uv run zap deploy tests/teensy40 -e teensy40 --monitor
+uv run fbuild deploy tests/teensy40 -e teensy40 --monitor
 ```
 
 Expected behavior:

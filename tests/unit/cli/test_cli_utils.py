@@ -1,6 +1,6 @@
 """Unit tests for CLI utilities including BannerFormatter."""
 
-from zapio.cli_utils import BannerFormatter
+from fbuild.cli_utils import BannerFormatter
 
 
 class TestBannerFormatter:
@@ -43,9 +43,7 @@ class TestBannerFormatter:
 
     def test_format_banner_custom_border_char(self):
         """Test formatting a banner with custom border character."""
-        result = BannerFormatter.format_banner(
-            "Test", width=10, border_char="-", center=False
-        )
+        result = BannerFormatter.format_banner("Test", width=10, border_char="-", center=False)
         lines = result.split("\n")
 
         assert lines[0] == "-" * 10
@@ -82,9 +80,7 @@ class TestBannerFormatter:
 
     def test_format_banner_width_60(self):
         """Test formatting with 60-character width (common in orchestrator files)."""
-        result = BannerFormatter.format_banner(
-            "BUILD SUCCESSFUL!", width=60, center=False
-        )
+        result = BannerFormatter.format_banner("BUILD SUCCESSFUL!", width=60, center=False)
         lines = result.split("\n")
 
         assert len(lines) == 3

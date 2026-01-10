@@ -1,8 +1,8 @@
-# Zapio Daemon API Reference
+# fbuild Daemon API Reference
 
 ## Overview
 
-The Zapio daemon provides a background service for managing concurrent build, deploy, and monitor operations. This document describes the daemon's internal API, client interface, and message protocol.
+The fbuild daemon provides a background service for managing concurrent build, deploy, and monitor operations. This document describes the daemon's internal API, client interface, and message protocol.
 
 **Version:** 1.0
 **Last Updated:** 2026-01-08
@@ -14,14 +14,14 @@ The Zapio daemon provides a background service for managing concurrent build, de
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                         CLI Layer                            │
-│                      (src/zapio/cli.py)                      │
+│                      (src/fbuild/cli.py)                      │
 └─────────────────────┬───────────────────────────────────────┘
                       │
                       │ DaemonClient API
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                     Daemon Client                            │
-│                (src/zapio/daemon/client.py)                  │
+│                (src/fbuild/daemon/client.py)                  │
 │  - submit_deploy_request()                                   │
 │  - submit_monitor_request()                                  │
 │  - poll_status()                                             │
@@ -31,7 +31,7 @@ The Zapio daemon provides a background service for managing concurrent build, de
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                       Daemon Server                          │
-│                 (src/zapio/daemon/daemon.py)                 │
+│                 (src/fbuild/daemon/daemon.py)                 │
 │  - Process Requests                                          │
 │  - Manage Locks (Port + Project)                            │
 │  - Execute Operations                                        │
@@ -52,7 +52,7 @@ The Zapio daemon provides a background service for managing concurrent build, de
 
 ## Client API
 
-### Module: `zapio.daemon.client`
+### Module: `fbuild.daemon.client`
 
 #### Class: `DaemonClient`
 
@@ -66,7 +66,7 @@ def __init__(self, daemon_dir: Path) -> None:
     Initialize daemon client.
 
     Args:
-        daemon_dir: Directory for daemon state files (typically ~/.zapio)
+        daemon_dir: Directory for daemon state files (typically ~/.fbuild)
     """
 ```
 
@@ -259,7 +259,7 @@ def submit_monitor_request(
 
 ## Message Protocol
 
-### Module: `zapio.daemon.messages`
+### Module: `fbuild.daemon.messages`
 
 #### Class: `DeployRequest`
 
@@ -360,9 +360,9 @@ class OperationStatusType(Enum):
 
 ## Daemon Server API
 
-### Module: `zapio.daemon.daemon`
+### Module: `fbuild.daemon.daemon`
 
-#### Class: `ZapioDaemon`
+#### Class: `FbuildDaemon`
 
 The main daemon server that processes requests.
 
@@ -497,7 +497,7 @@ def _cleanup_stale_cancel_signals(self) -> None:
 ### Directory Structure
 
 ```
-~/.zapio/
+~/.fbuild/
 ├── daemon.pid              # Daemon process ID
 ├── daemon_status.json      # Overall daemon status
 ├── shutdown.signal         # Shutdown signal file
@@ -679,7 +679,7 @@ When user presses Ctrl-C in client:
 
 #### Shutdown Signal
 
-Created by: `zap daemon stop`
+Created by: `fbuild daemon stop`
 
 ```python
 # Create shutdown signal
@@ -761,10 +761,10 @@ except Exception as e:
 
 ```python
 from pathlib import Path
-from zapio.daemon.client import DaemonClient
+from fbuild.daemon.client import DaemonClient
 
 # Initialize client
-client = DaemonClient(Path.home() / ".zapio")
+client = DaemonClient(Path.home() / ".fbuild")
 
 # Ensure daemon is running
 if not client.is_daemon_running():
@@ -793,9 +793,9 @@ else:
 ```python
 import threading
 from pathlib import Path
-from zapio.daemon.client import DaemonClient
+from fbuild.daemon.client import DaemonClient
 
-client = DaemonClient(Path.home() / ".zapio")
+client = DaemonClient(Path.home() / ".fbuild")
 
 def deploy_project_1():
     result = client.submit_deploy_request(
@@ -830,9 +830,9 @@ t2.join()
 
 ```python
 from pathlib import Path
-from zapio.daemon.client import DaemonClient
+from fbuild.daemon.client import DaemonClient
 
-client = DaemonClient(Path.home() / ".zapio")
+client = DaemonClient(Path.home() / ".fbuild")
 
 result = client.submit_monitor_request(
     project_dir=Path("tests/esp32c6"),
@@ -880,7 +880,7 @@ else:
 
 ### File Permissions
 
-- Daemon directory: `~/.zapio/` (user-only access)
+- Daemon directory: `~/.fbuild/` (user-only access)
 - PID file: Read-only for other users
 - Request files: Temporary, deleted after processing
 - Status files: Readable by user only
@@ -904,42 +904,42 @@ else:
 
 ### Daemon Won't Start
 
-**Symptoms:** `zap daemon status` shows "not running"
+**Symptoms:** `fbuild daemon status` shows "not running"
 
 **Diagnosis:**
-1. Check PID file: `cat ~/.zapio/daemon.pid`
+1. Check PID file: `cat ~/.fbuild/daemon.pid`
 2. Check for stale PID: `ps <pid>`
 3. Check daemon logs
 
 **Solution:**
-- Remove stale PID file: `rm ~/.zapio/daemon.pid`
-- Restart: `zap daemon restart`
+- Remove stale PID file: `rm ~/.fbuild/daemon.pid`
+- Restart: `fbuild daemon restart`
 
 ### Operation Hangs
 
 **Symptoms:** Status shows "RUNNING" indefinitely
 
 **Diagnosis:**
-1. Check daemon is alive: `zap daemon status`
+1. Check daemon is alive: `fbuild daemon status`
 2. Check for deadlock: Look for multiple locks
-3. Check status file: `cat ~/.zapio/<operation>_<request_id>.status`
+3. Check status file: `cat ~/.fbuild/<operation>_<request_id>.status`
 
 **Solution:**
 - Press Ctrl-C in client and detach
-- Stop daemon: `zap daemon stop`
-- Remove status file: `rm ~/.zapio/<operation>_<request_id>.status`
+- Stop daemon: `fbuild daemon stop`
+- Remove status file: `rm ~/.fbuild/<operation>_<request_id>.status`
 
 ### Lock Errors
 
 **Symptoms:** "Project is locked" or "Port is locked"
 
 **Diagnosis:**
-1. Check for concurrent operations: `zap daemon status`
+1. Check for concurrent operations: `fbuild daemon status`
 2. Check for stale locks (daemon crash)
 
 **Solution:**
 - Wait for current operation to complete
-- Restart daemon to clear stale locks: `zap daemon restart`
+- Restart daemon to clear stale locks: `fbuild daemon restart`
 
 ---
 

@@ -4,7 +4,7 @@ Unit tests for platformio.ini parser.
 
 import pytest
 
-from zapio.config.ini_parser import PlatformIOConfig, PlatformIOConfigError
+from fbuild.config.ini_parser import PlatformIOConfig, PlatformIOConfigError
 
 
 class TestPlatformIOConfig:
@@ -313,9 +313,7 @@ framework = arduino
         assert config.get_default_environment() == "mega"
 
     # Test variable substitution
-    @pytest.mark.skip(
-        reason="Variable substitution with underscores needs special handling"
-    )
+    @pytest.mark.skip(reason="Variable substitution with underscores needs special handling")
     def test_variable_substitution(self, config_with_variable_substitution):
         """Test that variable substitution works."""
         config = PlatformIOConfig(config_with_variable_substitution)

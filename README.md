@@ -1,4 +1,4 @@
-# Zapio
+# Fbuild
 
 A modern, reliable replacement for PlatformIO that fixes all the bugs and simplifies embedded development.
 
@@ -8,27 +8,27 @@ A modern, reliable replacement for PlatformIO that fixes all the bugs and simpli
 [![Ubuntu_Tests](../../actions/workflows/push_ubuntu.yml/badge.svg)](../../actions/workflows/push_ubuntu.yml)
 [![Win_Tests](../../actions/workflows/push_win.yml/badge.svg)](../../actions/workflows/push_win.yml)
 
-## What is Zapio?
+## What is Fbuild?
 
-Zapio is a next-generation embedded development tool designed to replace PlatformIO with a cleaner, more reliable architecture. Built from the ground up to address the pain points developers face with existing tools.
+Fbuild is a next-generation embedded development tool designed to replace PlatformIO with a cleaner, more reliable architecture. Built from the ground up to address the pain points developers face with existing tools.
 
 **Current Status**: v0.1.0 - Full Arduino Uno support with working build system
 
 ## Examples
 
-`uv run zap deploy tests/esp32c6 --clean`
-`uv run zap monitor --timeout 60 --halt-on-error "TEST FAILED" --halt-on-success "TEST PASSED"`
+`uv run fbuild deploy tests/esp32c6 --clean`
+`uv run fbuild monitor --timeout 60 --halt-on-error "TEST FAILED" --halt-on-success "TEST PASSED"`
 
   * this will require the use of pyserial to attach to the usb
   * see how this is done in platformio
 
 
-`uv run zap deploy tests/esp32c6 --no-build`
-`uv run zap deploy tests/esp32c6/**/firmware.bin`
+`uv run fbuild deploy tests/esp32c6 --no-build`
+`uv run fbuild deploy tests/esp32c6/**/firmware.bin`
 
 **complex**
 
-`uv run zap deploy tests/esp32c6 --monitor="--timeout 60 --halt-on-error \"TEST FAILED\" --halt-on-success \"TEST PASSED\"`
+`uv run fbuild deploy tests/esp32c6 --monitor="--timeout 60 --halt-on-error \"TEST FAILED\" --halt-on-success \"TEST PASSED\"`
 
 ## Key Features
 
@@ -45,11 +45,11 @@ Zapio is a next-generation embedded development tool designed to replace Platfor
 
 ```bash
 # Install from PyPI (when published)
-pip install zapio
+pip install fbuild
 
 # Or install from source
-git clone https://github.com/yourusername/zapio.git
-cd zapio
+git clone https://github.com/yourusername/fbuild.git
+cd fbuild
 pip install -e .
 ```
 
@@ -87,14 +87,14 @@ void loop() {
 
 4. **Build**:
 ```bash
-zap build
+fbuild build
 ```
 
-On first build, Zapio will:
+On first build, Fbuild will:
 - Download AVR-GCC toolchain (50MB, one-time)
 - Download Arduino AVR core (5MB, one-time)
 - Compile your sketch
-- Generate `firmware.hex` in `.zap/build/uno/`
+- Generate `firmware.hex` in `.fbuild/build/uno/`
 
 **Build time**: ~19s first build, ~3s subsequent builds, <1s incremental
 
@@ -104,20 +104,20 @@ On first build, Zapio will:
 
 ```bash
 # Build with auto-detected environment
-zap build
+fbuild build
 
 # Build specific environment
-zap build --environment uno
-zap build -e mega
+fbuild build --environment uno
+fbuild build -e mega
 
 # Clean build (remove all build artifacts)
-zap build --clean
+fbuild build --clean
 
 # Verbose output (shows all compiler commands)
-zap build --verbose
+fbuild build --verbose
 
 # Build in different directory
-zap build --project-dir /path/to/project
+fbuild build --project-dir /path/to/project
 ```
 
 ### Output
@@ -127,7 +127,7 @@ Building environment: uno
 Downloading toolchain: avr-gcc 7.3.0-atmel3.6.1-arduino7
 Downloading: 100% ████████████████████ 50.1MB/50.1MB
 Extracting package...
-Toolchain ready at: .zap/cache/...
+Toolchain ready at: .fbuild/cache/...
 Downloading Arduino core: 1.8.6
 Compiling sketch...
 Compiling Arduino core...
@@ -136,7 +136,7 @@ Converting to Intel HEX...
 
 ✓ Build successful!
 
-Firmware: .zap/build/uno/firmware.hex
+Firmware: .fbuild/build/uno/firmware.hex
 Program: 1058 bytes (3.3% of 32256 bytes)
 RAM: 9 bytes (0.4% of 2048 bytes)
 Build time: 3.06s
@@ -175,7 +175,7 @@ lib_deps =
 
 ### Library Dependencies
 
-Zapio supports downloading and compiling Arduino libraries directly from GitHub URLs:
+Fbuild supports downloading and compiling Arduino libraries directly from GitHub URLs:
 
 ```ini
 [env:uno]
@@ -196,7 +196,7 @@ lib_deps =
 **Example build with FastLED**:
 ```
 ✓ Build successful!
-Firmware: tests/uno/.zap/build/uno/firmware.hex
+Firmware: tests/uno/.fbuild/build/uno/firmware.hex
 Size: 12KB (4318 bytes program, 3689 bytes RAM)
 Build time: 78.59 seconds
 ```
@@ -241,26 +241,26 @@ Build time: 78.59 seconds
 - Program: 1,058 bytes (3.3% of 32KB flash)
 - RAM: 9 bytes (0.4% of 2KB RAM)
 
-## Why Zapio over PlatformIO?
+## Why Fbuild over PlatformIO?
 
 ### Transparency
-- **Zapio**: Direct URLs, hash-based caching, know exactly what you're downloading
+- **Fbuild**: Direct URLs, hash-based caching, know exactly what you're downloading
 - **PlatformIO**: Hidden package registry, opaque dependency resolution
 
 ### Reliability
-- **Zapio**: Real downloads with checksum verification, no mocks in production
+- **Fbuild**: Real downloads with checksum verification, no mocks in production
 - **PlatformIO**: Complex dependency chains, frequent breaking changes
 
 ### Speed
-- **Zapio**: Optimized incremental builds (<1s), smart caching
+- **Fbuild**: Optimized incremental builds (<1s), smart caching
 - **PlatformIO**: Can be slow, especially with clean builds
 
 ### Code Quality
-- **Zapio**: 100% type-safe (mypy), PEP 8 compliant, comprehensive tests
+- **Fbuild**: 100% type-safe (mypy), PEP 8 compliant, comprehensive tests
 - **PlatformIO**: Mixed code quality, harder to contribute to
 
 ### Error Messages
-- **Zapio**: Clear, actionable error messages with suggestions
+- **Fbuild**: Clear, actionable error messages with suggestions
 - **PlatformIO**: Often cryptic errors requiring forum searches
 
 ## Architecture
@@ -319,7 +319,7 @@ my-project/
 ├── src/
 │   ├── main.ino        # Your Arduino sketch
 │   └── helpers.cpp     # Additional C++ files
-└── .zap/               # Build artifacts (auto-generated)
+└── .fbuild/               # Build artifacts (auto-generated)
     ├── cache/
     │   ├── packages/   # Downloaded toolchains
     │   └── extracted/  # Arduino cores
@@ -332,7 +332,7 @@ my-project/
 
 ## Testing
 
-Zapio includes comprehensive integration tests:
+Fbuild includes comprehensive integration tests:
 
 ```bash
 # Run all tests
@@ -361,15 +361,15 @@ pytest -v tests/integration/
 
 Make sure you're in the project directory or use `-d`:
 ```bash
-zap build -d /path/to/project
+fbuild build -d /path/to/project
 ```
 
 ### Build fails with checksum mismatch
 
 Clear cache and rebuild:
 ```bash
-rm -rf .zap/cache/
-zap build
+rm -rf .fbuild/cache/
+fbuild build
 ```
 
 ### Compiler errors in sketch
@@ -399,7 +399,7 @@ See [docs/build-system.md](docs/build-system.md) for more troubleshooting.
 
 ## Development
 
-To develop Zapio, run `. ./activate.sh`
+To develop Fbuild, run `. ./activate.sh`
 
 ### Windows
 

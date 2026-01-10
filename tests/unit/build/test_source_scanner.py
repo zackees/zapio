@@ -2,7 +2,7 @@
 
 import pytest
 from pathlib import Path
-from zapio.build.source_scanner import SourceScanner, SourceCollection
+from fbuild.build.source_scanner import SourceScanner, SourceCollection
 
 
 class TestSourceScanner:

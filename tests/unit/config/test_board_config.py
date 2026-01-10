@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from zapio.config.board_config import BoardConfig, BoardConfigError
+from fbuild.config.board_config import BoardConfig, BoardConfigError
 
 
 class TestBoardConfig:
@@ -78,9 +78,7 @@ uno.pid=0x0043
     # Test initialization
     def test_init_with_required_fields(self):
         """Test initialization with required fields."""
-        config = BoardConfig(
-            name="Arduino Uno", mcu="atmega328p", f_cpu="16000000L", board="AVR_UNO"
-        )
+        config = BoardConfig(name="Arduino Uno", mcu="atmega328p", f_cpu="16000000L", board="AVR_UNO")
         assert config.name == "Arduino Uno"
         assert config.mcu == "atmega328p"
         assert config.f_cpu == "16000000L"
@@ -270,9 +268,7 @@ uno.build.board=AVR_UNO
     # Test get_defines
     def test_get_defines_basic(self):
         """Test getting preprocessor defines."""
-        config = BoardConfig(
-            name="Arduino Uno", mcu="atmega328p", f_cpu="16000000L", board="AVR_UNO"
-        )
+        config = BoardConfig(name="Arduino Uno", mcu="atmega328p", f_cpu="16000000L", board="AVR_UNO")
         defines = config.get_defines()
         assert defines["F_CPU"] == "16000000L"
         assert defines["ARDUINO"] == "10819"
@@ -353,9 +349,7 @@ uno.build.board=AVR_UNO
     # Test __repr__
     def test_repr(self):
         """Test string representation."""
-        config = BoardConfig(
-            name="Arduino Uno", mcu="atmega328p", f_cpu="16000000L", board="AVR_UNO"
-        )
+        config = BoardConfig(name="Arduino Uno", mcu="atmega328p", f_cpu="16000000L", board="AVR_UNO")
         repr_str = repr(config)
         assert "Arduino Uno" in repr_str
         assert "atmega328p" in repr_str

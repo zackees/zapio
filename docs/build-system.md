@@ -1,21 +1,21 @@
-# Zapio Build System Architecture
+# fbuild Build System Architecture
 
 ## Overview
 
-Zapio is a modern embedded development tool that compiles Arduino sketches using the native AVR toolchain. The build system is designed to be transparent, reliable, and fast, with a focus on URL-based package management and no hidden dependencies.
+fbuild is a modern embedded development tool that compiles Arduino sketches using the native AVR toolchain. The build system is designed to be transparent, reliable, and fast, with a focus on URL-based package management and no hidden dependencies.
 
 ## System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     zap build (CLI)                         │
-│                   (src/zapio/cli.py)                        │
+│                     fbuild build (CLI)                         │
+│                   (src/fbuild/cli.py)                        │
 └─────────────────────────┬───────────────────────────────────┘
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────────┐
 │              Build Orchestrator                              │
-│          (src/zapio/build/orchestrator.py)                   │
+│          (src/fbuild/build/orchestrator.py)                   │
 │                                                              │
 │  Coordinates: Config → Packages → Compile → Link            │
 └───┬───────────────┬─────────────────┬─────────────┬────────┘
@@ -36,9 +36,9 @@ Zapio is a modern embedded development tool that compiles Arduino sketches using
 
 ## Abstract Base Classes (ABCs)
 
-**Location**: `src/zapio/build/base_*.py`, `src/zapio/packages/base_package.py`, `src/zapio/deploy/base_deployer.py`
+**Location**: `src/fbuild/build/base_*.py`, `src/fbuild/packages/base_package.py`, `src/fbuild/deploy/base_deployer.py`
 
-Zapio uses Python's Abstract Base Classes (ABC) to define clear interfaces for polymorphic components. This ensures type safety, consistency, and makes the codebase more maintainable and extensible.
+fbuild uses Python's Abstract Base Classes (ABC) to define clear interfaces for polymorphic components. This ensures type safety, consistency, and makes the codebase more maintainable and extensible.
 
 ### Package Management ABCs
 
@@ -128,7 +128,7 @@ All implementations will be type-checked to ensure they conform to the base inte
 
 ### 1. Configuration System
 
-**Location**: `src/zapio/config/`
+**Location**: `src/fbuild/config/`
 
 #### INI Parser (`ini_parser.py`)
 - Parses `platformio.ini` files using Python's `configparser`
@@ -148,7 +148,7 @@ All implementations will be type-checked to ensure they conform to the base inte
 
 ### 2. Package Management
 
-**Location**: `src/zapio/packages/`
+**Location**: `src/fbuild/packages/`
 
 #### Downloader (`downloader.py`)
 - Downloads packages over HTTP/HTTPS with progress tracking
@@ -174,7 +174,7 @@ All implementations will be type-checked to ensure they conform to the base inte
 
 **Cache Structure**:
 ```
-.zap/cache/
+.fbuild/cache/
 ├── packages/
 │   └── {url_hash}/           # SHA256 hash of package URL
 │       └── {version}/        # Version string
@@ -187,7 +187,7 @@ All implementations will be type-checked to ensure they conform to the base inte
 
 ### 3. Build System
 
-**Location**: `src/zapio/build/`
+**Location**: `src/fbuild/build/`
 
 #### Source Scanner (`source_scanner.py`)
 - Discovers all source files in project:
@@ -289,13 +289,13 @@ avr-size -A firmware.elf
 
 ### 4. Command Line Interface
 
-**Location**: `src/zapio/cli.py`
+**Location**: `src/fbuild/cli.py`
 
 The CLI uses argparse for argument parsing and dataclasses for strong typing. All arguments are immediately parsed into typed dataclass instances, providing type safety throughout the application.
 
 **Build Command**:
 ```bash
-zap build [OPTIONS]
+fbuild build [OPTIONS]
 
 Options:
   -e, --environment TEXT    Build environment (auto-detected if omitted)
@@ -389,7 +389,7 @@ project/
 ├── src/
 │   ├── main.ino
 │   └── helpers.cpp
-└── .zap/
+└── .fbuild/
     ├── cache/
     │   ├── packages/
     │   │   └── {toolchain_hash}/7.3.0-atmel3.6.1-arduino7/
@@ -426,7 +426,7 @@ project/
 cd path/to/project
 
 # Or specify project directory
-zap build -d path/to/project
+fbuild build -d path/to/project
 ```
 
 ### Build Fails: Checksum Mismatch
@@ -436,10 +436,10 @@ zap build -d path/to/project
 **Solution**:
 ```bash
 # Clear cache and re-download
-rm -rf .zap/cache/packages/
+rm -rf .fbuild/cache/packages/
 
 # Try build again
-zap build
+fbuild build
 ```
 
 **Note**: If the problem persists, Arduino may have republished the package. Report as an issue.
@@ -471,7 +471,7 @@ Error: src/main.ino:5:1: error: expected ';' before '}' token
 3. Incremental builds with no changes: < 1s
 
 **Solutions**:
-- Ensure cache is preserved (don't delete `.zap/cache/`)
+- Ensure cache is preserved (don't delete `.fbuild/cache/`)
 - Check network speed if downloads are slow
 - Use `--verbose` to see what's taking time
 - Consider SSD for better file I/O
@@ -486,14 +486,14 @@ Error: src/main.ino:5:1: error: expected ';' before '}' token
 set PYTHONIOENCODING=utf-8
 
 # Then build
-zap build
+fbuild build
 ```
 
 ### Cross-Platform Path Issues
 
 **Problem**: Build works on Windows but not Linux (or vice versa).
 
-**Solution**: Zapio uses `pathlib.Path` for cross-platform compatibility. If you encounter issues:
+**Solution**: fbuild uses `pathlib.Path` for cross-platform compatibility. If you encounter issues:
 - Report as a bug with your platform details
 - Workaround: Use absolute paths
 
@@ -501,7 +501,7 @@ zap build
 
 ### Incremental Build Logic
 
-Zapio tracks file modification times to skip unnecessary compilation:
+fbuild tracks file modification times to skip unnecessary compilation:
 
 ```python
 def needs_rebuild(source: Path, object_file: Path) -> bool:
@@ -536,7 +536,7 @@ These flags are passed to both C and C++ compilers.
 
 ### URL-Based Package Management
 
-Zapio uses URL hashing for package identification:
+fbuild uses URL hashing for package identification:
 
 ```python
 import hashlib
@@ -552,7 +552,7 @@ def url_to_cache_path(url: str, version: str) -> Path:
 - Transparent: You know exactly what URL is being used
 - No registry dependency
 
-### Extending Zapio
+### Extending fbuild
 
 To add support for new boards:
 
@@ -636,10 +636,10 @@ To profile build performance:
 
 ```bash
 # Time the build
-time zap build
+time fbuild build
 
 # Verbose output shows step-by-step timing
-zap build -v
+fbuild build -v
 ```
 
 ## Future Enhancements
@@ -683,6 +683,6 @@ See main README for development setup. Key points:
   - Configuration parsing (platformio.ini, boards.txt)
   - Package management (toolchain, Arduino core)
   - Build system (compile, link, generate HEX)
-  - CLI interface (zap build)
+  - CLI interface (fbuild build)
   - Integration tests (11 tests passing)
   - Code quality (mypy, flake8)

@@ -1,5 +1,5 @@
 """
-Pytest configuration for Zapio test suite.
+Pytest configuration for fbuild test suite.
 
 This configuration enables the --full flag to run integration tests.
 """

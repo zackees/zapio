@@ -1,20 +1,20 @@
-# ESP32-C2 Support in Zapio
+# ESP32-C2 Support in fbuild
 
 ## Overview
 
-ESP32-C2 is now fully supported in Zapio v0.1.0+! This document explains how ESP32-C2 support works and why it required special implementation.
+ESP32-C2 is now fully supported in fbuild v0.1.0+! This document explains how ESP32-C2 support works and why it required special implementation.
 
 ## Quick Start
 
 ```bash
 # Build ESP32-C2 firmware
-zap build tests/esp32c2 -e esp32c2
+fbuild build tests/esp32c2 -e esp32c2
 
 # Deploy to device
-zap deploy tests/esp32c2 -e esp32c2 --port COM3
+fbuild deploy tests/esp32c2 -e esp32c2 --port COM3
 
 # Monitor serial output
-zap monitor tests/esp32c2 -e esp32c2
+fbuild monitor tests/esp32c2 -e esp32c2
 ```
 
 ## Why ESP32-C2 is Special
@@ -70,7 +70,7 @@ tools/sdk/esp32c2/
 
 ```
 1. Download skeleton library from GitHub
-   └─> Extract to .zap/cache/platforms/
+   └─> Extract to .fbuild/cache/platforms/
 
 2. Compile Arduino core (55 source files)
    ├─> Uses skeleton headers
@@ -93,7 +93,7 @@ tools/sdk/esp32c2/
 
 ## Configuration
 
-The ESP32-C2 platform configuration is in `src/zapio/platform_configs/esp32c2.json`.
+The ESP32-C2 platform configuration is in `src/fbuild/platform_configs/esp32c2.json`.
 
 ### Key Configuration Elements
 
@@ -204,7 +204,7 @@ Typical build metrics:
 
 ## Implementation Details
 
-For developers working on Zapio itself, see `.agent_task/LOOP.md` for complete implementation details and the solution process.
+For developers working on fbuild itself, see `.agent_task/LOOP.md` for complete implementation details and the solution process.
 
 ## Version History
 

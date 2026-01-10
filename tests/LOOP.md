@@ -1,2 +1,2 @@
-uv run zap build tests/esp32c6 --clean
+uv run fbuild build tests/esp32c6 --clean
 

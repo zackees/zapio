@@ -28,7 +28,7 @@ class TestArduinoUnoBuild:
     @pytest.fixture
     def clean_build_dir(self, test_project_dir):
         """Clean build directory before each test"""
-        build_dir = test_project_dir / ".zap" / "build"
+        build_dir = test_project_dir / ".fbuild" / "build"
         if build_dir.exists():
             shutil.rmtree(build_dir)
         yield test_project_dir
@@ -49,7 +49,7 @@ class TestArduinoUnoBuild:
 
         # Run build command
         result = subprocess.run(
-            ["zap", "build", "-e", "uno"],
+            ["fbuild", "build", "-e", "uno"],
             cwd=project_dir,
             capture_output=True,
             text=True,
@@ -59,21 +59,15 @@ class TestArduinoUnoBuild:
         build_time = time.time() - start_time
 
         # Assert successful build
-        assert result.returncode == 0, (
-            f"Build failed with exit code {result.returncode}\n"
-            f"STDOUT:\n{result.stdout}\n"
-            f"STDERR:\n{result.stderr}"
-        )
+        assert result.returncode == 0, f"Build failed with exit code {result.returncode}\n" f"STDOUT:\n{result.stdout}\n" f"STDERR:\n{result.stderr}"
 
         # Verify firmware.hex was created
-        hex_path = project_dir / ".zap" / "build" / "uno" / "firmware.hex"
+        hex_path = project_dir / ".fbuild" / "build" / "uno" / "firmware.hex"
         assert hex_path.exists(), f"firmware.hex not created at {hex_path}"
 
         # Verify HEX file format (Intel HEX)
         hex_content = hex_path.read_text()
-        assert hex_content.startswith(
-            ":"
-        ), "HEX file doesn't start with ':' (invalid Intel HEX format)"
+        assert hex_content.startswith(":"), "HEX file doesn't start with ':' (invalid Intel HEX format)"
         assert ":00000001FF" in hex_content, "HEX file missing EOF marker :00000001FF"
 
         # Verify each line follows Intel HEX format
@@ -84,10 +78,7 @@ class TestArduinoUnoBuild:
 
         # Verify reasonable size (typical Blink sketch is ~1-5 KB)
         hex_size = hex_path.stat().st_size
-        assert 100 < hex_size < 50000, (
-            f"Unexpected hex size: {hex_size} bytes. "
-            f"Expected between 100 and 50000 bytes."
-        )
+        assert 100 < hex_size < 50000, f"Unexpected hex size: {hex_size} bytes. " f"Expected between 100 and 50000 bytes."
 
         # Performance check - first build should complete in reasonable time
         # (Including potential downloads, should be < 60s on reasonable connection)
@@ -106,7 +97,7 @@ class TestArduinoUnoBuild:
 
         # First build (to ensure everything is compiled)
         result1 = subprocess.run(
-            ["zap", "build", "-e", "uno"],
+            ["fbuild", "build", "-e", "uno"],
             cwd=project_dir,
             capture_output=True,
             timeout=120,
@@ -116,7 +107,7 @@ class TestArduinoUnoBuild:
         # Second build (should be incremental)
         start_time = time.time()
         result2 = subprocess.run(
-            ["zap", "build", "-e", "uno"],
+            ["fbuild", "build", "-e", "uno"],
             cwd=project_dir,
             capture_output=True,
             timeout=30,
@@ -126,9 +117,7 @@ class TestArduinoUnoBuild:
         assert result2.returncode == 0, "Incremental build failed"
 
         # Incremental build should be very fast (< 5s as per success criteria)
-        assert incremental_time < 5.0, (
-            f"Incremental build too slow: {incremental_time:.2f}s. " f"Expected < 5s."
-        )
+        assert incremental_time < 5.0, f"Incremental build too slow: {incremental_time:.2f}s. " f"Expected < 5s."
 
         print(f"\n✓ Incremental build completed in {incremental_time:.2f}s")
 
@@ -144,7 +133,7 @@ class TestArduinoUnoBuild:
 
         # First build
         result1 = subprocess.run(
-            ["zap", "build", "-e", "uno"],
+            ["fbuild", "build", "-e", "uno"],
             cwd=project_dir,
             capture_output=True,
             timeout=120,
@@ -152,7 +141,7 @@ class TestArduinoUnoBuild:
         assert result1.returncode == 0, "Initial build failed"
 
         # Note the mtime of firmware.hex
-        hex_path = project_dir / ".zap" / "build" / "uno" / "firmware.hex"
+        hex_path = project_dir / ".fbuild" / "build" / "uno" / "firmware.hex"
         old_mtime = hex_path.stat().st_mtime
 
         # Wait a bit to ensure mtime difference
@@ -160,7 +149,7 @@ class TestArduinoUnoBuild:
 
         # Clean build
         result2 = subprocess.run(
-            ["zap", "build", "-e", "uno", "--clean"],
+            ["fbuild", "build", "-e", "uno", "--clean"],
             cwd=project_dir,
             capture_output=True,
             timeout=120,
@@ -184,7 +173,7 @@ class TestArduinoUnoBuild:
         project_dir = test_project_dir
 
         result = subprocess.run(
-            ["zap", "build", "-e", "uno"],
+            ["fbuild", "build", "-e", "uno"],
             cwd=project_dir,
             capture_output=True,
             text=True,
@@ -197,15 +186,12 @@ class TestArduinoUnoBuild:
         assert "bytes" in output.lower(), "Build output missing size information"
 
         # Verify hex file size
-        hex_path = project_dir / ".zap" / "build" / "uno" / "firmware.hex"
+        hex_path = project_dir / ".fbuild" / "build" / "uno" / "firmware.hex"
         hex_size = hex_path.stat().st_size
 
         # For standard Blink sketch, expect 1-5 KB hex file
         # (Hex files are larger than binary due to ASCII encoding)
-        assert 500 < hex_size < 10000, (
-            f"Unexpected firmware size: {hex_size} bytes. "
-            f"Expected 500-10000 bytes for Blink sketch."
-        )
+        assert 500 < hex_size < 10000, f"Unexpected firmware size: {hex_size} bytes. " f"Expected 500-10000 bytes for Blink sketch."
 
         print(f"\n✓ Firmware size: {hex_size} bytes (within expected range)")
 
@@ -214,7 +200,7 @@ class TestArduinoUnoBuild:
         Test that build creates expected directory structure.
 
         Validates:
-        - .zap/build/uno directory exists
+        - .fbuild/build/uno directory exists
         - firmware.hex exists
         - firmware.elf exists
         - Object files are created
@@ -222,7 +208,7 @@ class TestArduinoUnoBuild:
         project_dir = test_project_dir
 
         result = subprocess.run(
-            ["zap", "build", "-e", "uno"],
+            ["fbuild", "build", "-e", "uno"],
             cwd=project_dir,
             capture_output=True,
             timeout=120,
@@ -230,7 +216,7 @@ class TestArduinoUnoBuild:
         assert result.returncode == 0, "Build failed"
 
         # Check directory structure
-        build_dir = project_dir / ".zap" / "build" / "uno"
+        build_dir = project_dir / ".fbuild" / "build" / "uno"
         assert build_dir.exists(), f"Build directory not created: {build_dir}"
 
         # Check firmware files
@@ -259,7 +245,7 @@ class TestArduinoUnoBuild:
         # Build twice
         for i in range(2):
             result = subprocess.run(
-                ["zap", "build", "-e", "uno"],
+                ["fbuild", "build", "-e", "uno"],
                 cwd=project_dir,
                 capture_output=True,
                 timeout=120,
@@ -267,7 +253,7 @@ class TestArduinoUnoBuild:
             assert result.returncode == 0, f"Build {i+1} failed"
 
         # Both builds should succeed
-        hex_path = project_dir / ".zap" / "build" / "uno" / "firmware.hex"
+        hex_path = project_dir / ".fbuild" / "build" / "uno" / "firmware.hex"
         assert hex_path.exists(), "firmware.hex not created"
 
         print("\n✓ Repeated builds are idempotent")
@@ -293,7 +279,7 @@ class TestBuildErrorHandling:
         # No platformio.ini file created
 
         result = subprocess.run(
-            ["zap", "build"],
+            ["fbuild", "build"],
             cwd=temp_project,
             capture_output=True,
             text=True,
@@ -305,9 +291,7 @@ class TestBuildErrorHandling:
 
         # Should have helpful error message
         output = result.stdout + result.stderr
-        assert (
-            "platformio.ini" in output.lower()
-        ), "Error message should mention platformio.ini"
+        assert "platformio.ini" in output.lower(), "Error message should mention platformio.ini"
 
         print("\n✓ Missing platformio.ini detected with helpful error")
 
@@ -326,7 +310,7 @@ framework = arduino
 
         # Try to build non-existent environment
         result = subprocess.run(
-            ["zap", "build", "-e", "nonexistent"],
+            ["fbuild", "build", "-e", "nonexistent"],
             cwd=temp_project,
             capture_output=True,
             text=True,
@@ -338,9 +322,7 @@ framework = arduino
 
         # Should have helpful error message
         output = result.stdout + result.stderr
-        assert (
-            "environment" in output.lower() or "nonexistent" in output.lower()
-        ), "Error message should mention invalid environment"
+        assert "environment" in output.lower() or "nonexistent" in output.lower(), "Error message should mention invalid environment"
 
         print("\n✓ Invalid environment detected with helpful error")
 
@@ -363,7 +345,7 @@ framework = arduino
 
         try:
             result = subprocess.run(
-                ["zap", "build", "-e", "uno"],
+                ["fbuild", "build", "-e", "uno"],
                 cwd=temp_project,
                 capture_output=True,
                 text=True,
@@ -409,7 +391,7 @@ void loop() {
         (src_dir / "main.ino").write_text(sketch_content)
 
         result = subprocess.run(
-            ["zap", "build", "-e", "uno"],
+            ["fbuild", "build", "-e", "uno"],
             cwd=temp_project,
             capture_output=True,
             text=True,
@@ -426,9 +408,7 @@ void loop() {
         stderr = result.stderr or ""
         output = stdout + stderr
         # Compiler error should mention expected semicolon or similar
-        assert (
-            "error" in output.lower() or result.returncode != 0
-        ), "Build should fail with error"
+        assert "error" in output.lower() or result.returncode != 0, "Build should fail with error"
 
         print("\n✓ Syntax error detected and reported by compiler")
 
@@ -468,7 +448,7 @@ void loop() {}
 
         # Build WITHOUT specifying environment
         result = subprocess.run(
-            ["zap", "build"],  # No -e flag
+            ["fbuild", "build"],  # No -e flag
             cwd=project_dir,
             capture_output=True,
             text=True,
@@ -483,9 +463,7 @@ void loop() {}
             stderr = result.stderr or ""
             output = stdout + stderr
             print(f"\n⚠ Auto-detection failed. Output:\n{output}")
-            assert (
-                False
-            ), f"Build should auto-select first environment. Exit code: {result.returncode}"
+            assert False, f"Build should auto-select first environment. Exit code: {result.returncode}"
         else:
             print("\n✓ Default environment auto-selected successfully")
 
